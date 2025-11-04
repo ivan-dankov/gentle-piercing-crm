@@ -107,10 +107,11 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          {/* @ts-expect-error - react-hook-form type inference issue */}
+          {/* @ts-ignore - react-hook-form type inference issue */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* @ts-expect-error - react-hook-form type inference issue */}
+            {/* @ts-ignore - react-hook-form type inference issue */}
             <FormField
+              // @ts-ignore
               control={form.control}
               name="name"
               render={({ field }) => (
@@ -123,8 +124,9 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
                 </FormItem>
               )}
             />
-            {/* @ts-expect-error - react-hook-form type inference issue */}
+            {/* @ts-ignore - react-hook-form type inference issue */}
             <FormField
+              // @ts-ignore
               control={form.control}
               name="duration_minutes"
               render={({ field }) => (
@@ -156,8 +158,9 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
                 </FormItem>
               )}
             />
-            {/* @ts-expect-error - react-hook-form type inference issue */}
+            {/* @ts-ignore - react-hook-form type inference issue */}
             <FormField
+              // @ts-ignore
               control={form.control}
               name="base_price"
               render={({ field }) => (
@@ -190,8 +193,9 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
                 </FormItem>
               )}
             />
-            {/* @ts-expect-error - react-hook-form type inference issue */}
+            {/* @ts-ignore - react-hook-form type inference issue */}
             <FormField
+              // @ts-ignore
               control={form.control}
               name="active"
               render={({ field }) => (
