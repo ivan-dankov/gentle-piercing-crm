@@ -233,6 +233,7 @@ export function EarringForm({ earring, children }: EarringFormProps) {
                 )}
               />
               <FormField
+                // @ts-ignore
                 control={form.control}
                 name="stock_qty"
                 render={({ field }) => (
