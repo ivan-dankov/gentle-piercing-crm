@@ -51,9 +51,11 @@ export default async function BookingDetailPage({
   }
 
   // Type assertion for the relations (Supabase may return arrays)
-  const client = Array.isArray(booking.client) ? booking.client[0] : booking.client
-  const service = Array.isArray(booking.service) ? booking.service[0] : booking.service
-  const earring = Array.isArray(booking.earring) ? booking.earring[0] : booking.earring
+  // Cast to any first to handle Supabase's dynamic typing
+  const bookingAny = booking as any
+  const client = Array.isArray(bookingAny.client) ? bookingAny.client[0] : bookingAny.client
+  const service = Array.isArray(bookingAny.service) ? bookingAny.service[0] : bookingAny.service
+  const earring = Array.isArray(bookingAny.earring) ? bookingAny.earring[0] : bookingAny.earring
 
   return (
     <div>
