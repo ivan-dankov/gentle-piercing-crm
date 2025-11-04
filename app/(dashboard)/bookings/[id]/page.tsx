@@ -50,6 +50,11 @@ export default async function BookingDetailPage({
     notFound()
   }
 
+  // Type assertion for the relations (Supabase may return arrays)
+  const client = Array.isArray(booking.client) ? booking.client[0] : booking.client
+  const service = Array.isArray(booking.service) ? booking.service[0] : booking.service
+  const earring = Array.isArray(booking.earring) ? booking.earring[0] : booking.earring
+
   return (
     <div>
       <Link href="/bookings">
@@ -62,7 +67,7 @@ export default async function BookingDetailPage({
         <div>
           <h1 className="text-3xl font-bold">Booking Details</h1>
           <p className="text-muted-foreground mt-1">
-            {booking.client?.name || 'No Client'} • {new Date(booking.start_time).toLocaleDateString()}
+            {client?.name || 'No Client'} • {new Date(booking.start_time).toLocaleDateString()}
           </p>
         </div>
         <div className="flex gap-2">
@@ -85,9 +90,9 @@ export default async function BookingDetailPage({
             <div>
               <p className="text-sm text-muted-foreground">Client</p>
               <p className="font-medium">
-                {booking.client ? (
-                  <Link href={`/clients/${booking.client.id}`} className="hover:underline">
-                    {booking.client.name}
+                {client ? (
+                  <Link href={`/clients/${client.id}`} className="hover:underline">
+                    {client.name}
                   </Link>
                 ) : (
                   'No Client'
@@ -96,11 +101,11 @@ export default async function BookingDetailPage({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Service</p>
-              <p className="font-medium">{booking.service?.name || 'No Service'}</p>
+              <p className="font-medium">{service?.name || 'No Service'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Earring</p>
-              <p className="font-medium">{booking.earring?.name || 'No Earring'}</p>
+              <p className="font-medium">{earring?.name || 'No Earring'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Earring Quantity</p>
