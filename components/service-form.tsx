@@ -54,28 +54,33 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
+  // Cast service to any to handle Supabase's dynamic typing
+  const serviceData = service as any
+
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
-      name: service?.name || '',
-      duration_minutes: service?.duration_minutes || 30,
-      base_price: service?.base_price || 0,
-      active: service?.active ?? true,
+      name: serviceData?.name || '',
+      duration_minutes: serviceData?.duration_minutes || 30,
+      base_price: serviceData?.base_price || 0,
+      active: serviceData?.active ?? true,
     },
   })
 
   const onSubmit = async (values: ServiceFormValues) => {
     setLoading(true)
     try {
-      if (service) {
+      if (serviceData) {
         const { error } = await supabase
           .from('services')
+          // @ts-expect-error - Supabase types issue
           .update(values)
-          .eq('id', service.id)
+          .eq('id', serviceData.id)
         if (error) throw error
       } else {
         const { error } = await supabase
           .from('services')
+          // @ts-expect-error - Supabase types issue
           .insert([values])
         if (error) throw error
       }
@@ -95,9 +100,9 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{service ? 'Edit Service' : 'Add New Service'}</DialogTitle>
+          <DialogTitle>{serviceData ? 'Edit Service' : 'Add New Service'}</DialogTitle>
           <DialogDescription>
-            {service ? 'Update service information' : 'Add a new service to the system'}
+            {serviceData ? 'Update service information' : 'Add a new service to the system'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -207,7 +212,7 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : service ? 'Update' : 'Create'}
+                {loading ? 'Saving...' : serviceData ? 'Update' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

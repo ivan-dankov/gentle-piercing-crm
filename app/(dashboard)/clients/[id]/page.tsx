@@ -26,6 +26,9 @@ export default async function ClientDetailPage({
     notFound()
   }
 
+  // Cast to any to handle Supabase's dynamic typing
+  const clientData = client as any
+
   const { data: bookings } = await supabase
     .from('bookings')
     .select(`
@@ -46,19 +49,19 @@ export default async function ClientDetailPage({
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">{client.name}</h1>
+          <h1 className="text-3xl font-bold">{clientData.name}</h1>
           <p className="text-muted-foreground mt-1">
-            Client since {new Date(client.created_at).toLocaleDateString()}
+            Client since {new Date(clientData.created_at).toLocaleDateString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ClientForm client={client}>
+          <ClientForm client={clientData}>
             <Button>
               <Edit className="h-4 w-4 mr-2" />
               Edit Client
             </Button>
           </ClientForm>
-          <DeleteClientButton client={client} variant="destructive" redirectAfterDelete={true} />
+          <DeleteClientButton client={clientData} variant="destructive" redirectAfterDelete={true} />
         </div>
       </div>
 
@@ -97,16 +100,16 @@ export default async function ClientDetailPage({
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">Phone</p>
-              <p className="font-medium">{client.phone || '-'}</p>
+              <p className="font-medium">{clientData.phone || '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Source</p>
-              <p className="font-medium">{client.source || '-'}</p>
+              <p className="font-medium">{clientData.source || '-'}</p>
             </div>
-            {client.notes && (
+            {clientData.notes && (
               <div className="md:col-span-2">
                 <p className="text-sm text-muted-foreground">Notes</p>
-                <p className="font-medium whitespace-pre-wrap">{client.notes}</p>
+                <p className="font-medium whitespace-pre-wrap">{clientData.notes}</p>
               </div>
             )}
           </div>

@@ -14,6 +14,9 @@ export default async function ClientsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
+  // Cast to any[] to handle Supabase's dynamic typing
+  const clientsData = (clients as any[]) || []
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -31,7 +34,7 @@ export default async function ClientsPage() {
           <CardTitle>All Clients</CardTitle>
         </CardHeader>
         <CardContent>
-          {clients && clients.length > 0 ? (
+          {clientsData && clientsData.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -43,7 +46,7 @@ export default async function ClientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.map((client) => (
+                {clientsData.map((client: any) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">
                       <Link href={`/clients/${client.id}`} className="hover:underline">

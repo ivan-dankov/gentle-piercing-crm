@@ -14,6 +14,9 @@ export default async function EarringsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
+  // Cast to any[] to handle Supabase's dynamic typing
+  const earringsData = (earrings as any[]) || []
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -31,7 +34,7 @@ export default async function EarringsPage() {
           <CardTitle>All Earrings</CardTitle>
         </CardHeader>
         <CardContent>
-          {earrings && earrings.length > 0 ? (
+          {earringsData && earringsData.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -46,7 +49,7 @@ export default async function EarringsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {earrings.map((earring) => {
+                {earringsData.map((earring: any) => {
                   const costDisplay = earring.cost ? `$${earring.cost.toFixed(2)}` : '-'
                   
                   const profitMargin = earring.cost

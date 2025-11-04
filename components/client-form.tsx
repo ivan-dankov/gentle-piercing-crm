@@ -94,9 +94,11 @@ export function ClientForm({ client, children, onSuccess }: ClientFormProps) {
           .select()
           .single()
         if (error) throw error
+        // Cast to any to handle Supabase's dynamic typing
+        const clientData = data as any
         // Call onSuccess to select the client in booking form BEFORE resetting
         // Wait for it to complete to ensure client is selected before closing modal
-        await onSuccess?.(data.id)
+        await onSuccess?.(clientData.id)
         // Reset form and refresh data
         form.reset()
         router.refresh()

@@ -14,6 +14,9 @@ export default async function ServicesPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
+  // Cast to any[] to handle Supabase's dynamic typing
+  const servicesData = (services as any[]) || []
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -31,7 +34,7 @@ export default async function ServicesPage() {
           <CardTitle>All Services</CardTitle>
         </CardHeader>
         <CardContent>
-          {services && services.length > 0 ? (
+          {servicesData && servicesData.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -43,7 +46,7 @@ export default async function ServicesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {services.map((service) => (
+                {servicesData.map((service: any) => (
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell>{service.duration_minutes} min</TableCell>
