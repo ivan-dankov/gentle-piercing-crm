@@ -7,6 +7,8 @@ import { Plus } from 'lucide-react'
 import { EarringForm } from '@/components/earring-form'
 import { DeleteEarringButton } from '@/components/delete-earring-button'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EarringsPage() {
   const supabase = await createClient()
   const { data: earrings } = await supabase

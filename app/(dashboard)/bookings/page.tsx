@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { BookingCalendar } from '@/components/booking-calendar'
 
+export const dynamic = 'force-dynamic'
+
 export default async function BookingsPage() {
   const supabase = await createClient()
   const { data: bookings } = await supabase

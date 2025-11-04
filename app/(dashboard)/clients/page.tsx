@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { ClientForm } from '@/components/client-form'
 import { DeleteClientButton } from '@/components/delete-client-button'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ClientsPage() {
   const supabase = await createClient()
   const { data: clients } = await supabase

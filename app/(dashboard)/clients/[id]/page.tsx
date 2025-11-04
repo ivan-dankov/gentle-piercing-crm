@@ -8,6 +8,8 @@ import { DeleteClientButton } from '@/components/delete-client-button'
 import { Edit } from 'lucide-react'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ClientDetailPage({
   params,
 }: {

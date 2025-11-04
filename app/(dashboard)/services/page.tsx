@@ -7,6 +7,8 @@ import { Plus } from 'lucide-react'
 import { ServiceForm } from '@/components/service-form'
 import { DeleteServiceButton } from '@/components/delete-service-button'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ServicesPage() {
   const supabase = await createClient()
   const { data: services } = await supabase
