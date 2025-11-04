@@ -77,6 +77,7 @@ export function EarringForm({ earring, children }: EarringFormProps) {
   })
 
   const form = useForm<EarringFormValues>({
+    // @ts-expect-error - react-hook-form type inference issue with zod
     resolver: zodResolver(earringSchema),
     defaultValues: getDefaultValues(),
   })

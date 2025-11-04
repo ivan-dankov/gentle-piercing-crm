@@ -58,6 +58,7 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
   const serviceData = service as any
 
   const form = useForm<ServiceFormValues>({
+    // @ts-expect-error - react-hook-form type inference issue with zod
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       name: serviceData?.name || '',
