@@ -12,8 +12,10 @@ export default async function Dashboard() {
     supabase.from('services').select('id', { count: 'exact', head: true }).eq('active', true),
   ])
 
-  const totalRevenue = bookingsResult.data?.reduce((sum, b) => sum + (b.total_paid || 0), 0) || 0
-  const totalProfit = bookingsResult.data?.reduce((sum, b) => sum + (b.profit || 0), 0) || 0
+  // Cast to any[] to handle Supabase's dynamic typing
+  const bookingsData = (bookingsResult.data as any[]) || []
+  const totalRevenue = bookingsData.reduce((sum, b: any) => sum + (b.total_paid || 0), 0) || 0
+  const totalProfit = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
 
   const stats = [
     {

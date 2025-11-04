@@ -33,10 +33,13 @@ export default async function BookingsPage() {
     `)
     .order('start_time', { ascending: true })
 
+  // Cast to any[] to handle Supabase's dynamic typing
+  const bookingsAny = (bookings as any[]) || []
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Bookings</h1>
-      <BookingCalendar bookings={bookings || []} />
+      <BookingCalendar bookings={bookingsAny} />
     </div>
   )
 }

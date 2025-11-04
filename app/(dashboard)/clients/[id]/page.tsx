@@ -36,9 +36,11 @@ export default async function ClientDetailPage({
     .eq('client_id', id)
     .order('start_time', { ascending: false })
 
-  const totalBookings = bookings?.length || 0
-  const totalRevenue = bookings?.reduce((sum, b) => sum + (b.total_paid || 0), 0) || 0
-  const totalProfit = bookings?.reduce((sum, b) => sum + (b.profit || 0), 0) || 0
+  // Cast to any to handle Supabase's dynamic typing
+  const bookingsAny = bookings as any[]
+  const totalBookings = bookingsAny?.length || 0
+  const totalRevenue = bookingsAny?.reduce((sum, b: any) => sum + (b.total_paid || 0), 0) || 0
+  const totalProfit = bookingsAny?.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
 
   return (
     <div>
@@ -116,7 +118,7 @@ export default async function ClientDetailPage({
           <CardTitle>Booking History</CardTitle>
         </CardHeader>
         <CardContent>
-          {bookings && bookings.length > 0 ? (
+          {bookingsAny && bookingsAny.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -129,22 +131,27 @@ export default async function ClientDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((booking: any) => (
-                  <TableRow key={booking.id}>
-                    <TableCell>
-                      {new Date(booking.start_time).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{booking.service?.name || '-'}</TableCell>
-                    <TableCell>{booking.earring?.name || '-'}</TableCell>
-                    <TableCell>${booking.total_paid?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell>${booking.profit?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell className="text-right">
-                      <Link href={`/bookings/${booking.id}`}>
-                        <Button variant="ghost" size="sm">View</Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {bookingsAny.map((booking: any) => {
+                  // Handle relations that may be arrays
+                  const service = Array.isArray(booking.service) ? booking.service[0] : booking.service
+                  const earring = Array.isArray(booking.earring) ? booking.earring[0] : booking.earring
+                  return (
+                    <TableRow key={booking.id}>
+                      <TableCell>
+                        {new Date(booking.start_time).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{service?.name || '-'}</TableCell>
+                      <TableCell>{earring?.name || '-'}</TableCell>
+                      <TableCell>${booking.total_paid?.toFixed(2) || '0.00'}</TableCell>
+                      <TableCell>${booking.profit?.toFixed(2) || '0.00'}</TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/bookings/${booking.id}`}>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           ) : (
