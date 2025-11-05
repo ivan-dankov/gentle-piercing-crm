@@ -43,6 +43,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Booking, BookingWithRelations, Client, Earring, Service } from '@/lib/types'
 import { CalendarIcon, Plus, FileText, Trash2, Clock, User, Scissors, CreditCard, Check, ChevronsUpDown, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { Loader } from '@/components/ui/loader'
 import { cn } from '@/lib/utils'
 import { GooglePlacesAutocomplete } from './google-places-autocomplete'
 
@@ -134,6 +135,7 @@ interface BookingFormProps {
 export function BookingForm({ booking, defaultStartTime, children }: BookingFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [earrings, setEarrings] = useState<Earring[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -152,17 +154,22 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   }, [open])
 
   const loadData = async () => {
-    const [clientsRes, earringsRes, servicesRes] = await Promise.all([
-      supabase.from('clients').select('*').order('name'),
-      supabase.from('earrings').select('*').eq('active', true).order('name'),
-      supabase.from('services').select('*').eq('active', true).order('name'),
-    ])
-    if (clientsRes.data) setClients(clientsRes.data)
-    if (earringsRes.data) {
-      setEarrings(earringsRes.data)
-    }
-    if (servicesRes.data) {
-      setServices(servicesRes.data)
+    setDataLoading(true)
+    try {
+      const [clientsRes, earringsRes, servicesRes] = await Promise.all([
+        supabase.from('clients').select('*').order('name'),
+        supabase.from('earrings').select('*').eq('active', true).order('name'),
+        supabase.from('services').select('*').eq('active', true).order('name'),
+      ])
+      if (clientsRes.data) setClients(clientsRes.data)
+      if (earringsRes.data) {
+        setEarrings(earringsRes.data)
+      }
+      if (servicesRes.data) {
+        setServices(servicesRes.data)
+      }
+    } finally {
+      setDataLoading(false)
     }
   }
 
@@ -559,6 +566,12 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   const onSubmit = async (values: BookingFormValues) => {
     setLoading(true)
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to create a booking')
+      }
+
       // Calculate aggregated totals
       const totalServicePrice = values.service_items.reduce((sum, item) => sum + (Number(item.price) || 0), 0)
       
@@ -575,6 +588,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
               phone: values.client_phone || null,
               source: values.client_source,
               notes: values.client_notes || null,
+              user_id: user.id,
             }])
             .select()
             .single()
@@ -638,7 +652,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
         const { data: newBooking, error } = await supabase
           .from('bookings')
           // @ts-expect-error - Supabase types issue
-          .insert([bookingData])
+          .insert([{ ...bookingData, user_id: user.id }])
           .select()
           .single()
         if (error) throw error
@@ -655,6 +669,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             earring_id: item.earring_id,
             qty: item.qty || 1,
             price: item.price ?? null,
+            user_id: user.id,
           }))
         
         if (earringItems.length > 0) {
@@ -674,6 +689,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             booking_id: bookingId,
             service_id: item.service_id,
             price: item.price ?? 0,
+            user_id: user.id,
           }))
         
         if (serviceItems.length > 0) {
@@ -694,6 +710,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             earring_id: item.earring_id,
             qty: item.qty || 1,
             cost: item.cost ?? null,
+            user_id: user.id,
           }))
         
         if (brokenEarringItems.length > 0) {
@@ -732,7 +749,15 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="!w-[1000px] !max-w-[1000px] !sm:max-w-[1000px] max-h-[95vh] flex flex-col p-0 gap-0">
+      <DialogContent className="!max-w-[1000px] !w-[1000px] max-h-[95vh] flex flex-col p-0 gap-0 !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2">
+        {dataLoading && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <Loader size="lg" />
+              <p className="text-sm text-muted-foreground">Loading data...</p>
+            </div>
+          </div>
+        )}
         <DialogHeader className="px-6 pt-4 pb-3 border-b gap-0">
           <DialogTitle className="text-2xl">{booking ? 'Edit Booking' : 'New Booking'}</DialogTitle>
         </DialogHeader>
@@ -1913,9 +1938,18 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
           <Button 
             type="button"
             onClick={form.handleSubmit(onSubmit)}
-            disabled={loading}
+            disabled={loading || dataLoading}
           >
-            {loading ? 'Saving...' : booking ? 'Update Booking' : 'Create Booking'}
+            {loading ? (
+              <>
+                <Loader size="sm" className="mr-2" />
+                Saving...
+              </>
+            ) : booking ? (
+              'Update Booking'
+            ) : (
+              'Create Booking'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

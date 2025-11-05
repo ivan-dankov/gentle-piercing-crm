@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Loader } from '@/components/ui/loader'
 import {
   Select,
   SelectContent,
@@ -75,6 +76,12 @@ export function ClientForm({ client, children, onSuccess }: ClientFormProps) {
     e?.stopPropagation()
     setLoading(true)
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to create a client')
+      }
+
       if (client) {
         const { error } = await supabase
           .from('clients')
@@ -90,7 +97,7 @@ export function ClientForm({ client, children, onSuccess }: ClientFormProps) {
         const { data, error } = await supabase
           .from('clients')
           // @ts-expect-error - Supabase types issue
-          .insert([values])
+          .insert([{ ...values, user_id: user.id }])
           .select()
           .single()
         if (error) throw error
@@ -201,7 +208,16 @@ export function ClientForm({ client, children, onSuccess }: ClientFormProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : client ? 'Update' : 'Create'}
+                {loading ? (
+                  <>
+                    <Loader size="sm" className="mr-2" />
+                    Saving...
+                  </>
+                ) : client ? (
+                  'Update'
+                ) : (
+                  'Create'
+                )}
               </Button>
             </DialogFooter>
           </form>

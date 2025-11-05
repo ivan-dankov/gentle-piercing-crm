@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Loader } from '@/components/ui/loader'
 import { createClient } from '@/lib/supabase/client'
 import type { Earring } from '@/lib/types'
 
@@ -93,6 +94,12 @@ export function EarringForm({ earring, children }: EarringFormProps) {
   const onSubmit = async (values: EarringFormValues) => {
     setLoading(true)
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to create an earring')
+      }
+
       if (earringData) {
         const { error } = await supabase
           .from('earrings')
@@ -104,7 +111,7 @@ export function EarringForm({ earring, children }: EarringFormProps) {
         const { error } = await supabase
           .from('earrings')
           // @ts-expect-error - Supabase types issue
-          .insert([values])
+          .insert([{ ...values, user_id: user.id }])
         if (error) throw error
       }
       setOpen(false)
@@ -329,7 +336,16 @@ export function EarringForm({ earring, children }: EarringFormProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : earring ? 'Update' : 'Create'}
+                {loading ? (
+                  <>
+                    <Loader size="sm" className="mr-2" />
+                    Saving...
+                  </>
+                ) : earring ? (
+                  'Update'
+                ) : (
+                  'Create'
+                )}
               </Button>
             </DialogFooter>
           </form>

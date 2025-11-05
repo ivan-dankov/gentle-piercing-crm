@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Loader } from '@/components/ui/loader'
 import { createClient } from '@/lib/supabase/client'
 import type { Service } from '@/lib/types'
 
@@ -71,6 +72,12 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
   const onSubmit = async (values: ServiceFormValues) => {
     setLoading(true)
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to create a service')
+      }
+
       if (serviceData) {
         const { error } = await supabase
           .from('services')
@@ -82,7 +89,7 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
         const { error } = await supabase
           .from('services')
           // @ts-expect-error - Supabase types issue
-          .insert([values])
+          .insert([{ ...values, user_id: user.id }])
         if (error) throw error
       }
       setOpen(false)
@@ -222,7 +229,16 @@ export function ServiceForm({ service, children }: ServiceFormProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : serviceData ? 'Update' : 'Create'}
+                {loading ? (
+                  <>
+                    <Loader size="sm" className="mr-2" />
+                    Saving...
+                  </>
+                ) : serviceData ? (
+                  'Update'
+                ) : (
+                  'Create'
+                )}
               </Button>
             </DialogFooter>
           </form>

@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Loader } from '@/components/ui/loader'
 import { createClient } from '@/lib/supabase/client'
 
 const loginSchema = z.object({
@@ -84,6 +85,7 @@ export function LoginForm() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
+                  disabled={loading}
                   {...field}
                 />
               </FormControl>
@@ -102,6 +104,7 @@ export function LoginForm() {
                   type="password"
                   placeholder="••••••••"
                   autoComplete="current-password"
+                  disabled={loading}
                   {...field}
                 />
               </FormControl>
@@ -110,7 +113,14 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign in'}
+          {loading ? (
+            <>
+              <Loader size="sm" className="mr-2" />
+              Signing in...
+            </>
+          ) : (
+            'Sign in'
+          )}
         </Button>
       </form>
     </Form>
