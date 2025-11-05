@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -31,6 +32,8 @@ type SignupFormValues = z.infer<typeof signupSchema>
 export function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [email, setEmail] = useState<string>('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -47,6 +50,7 @@ export function SignupForm() {
   const onSubmit = async (values: SignupFormValues) => {
     setLoading(true)
     setError(null)
+    setSuccess(false)
     try {
       const { error: signUpError } = await supabase.auth.signUp({
         email: values.email,
@@ -58,16 +62,50 @@ export function SignupForm() {
         return
       }
 
-      // Redirect to dashboard or the original destination
-      const redirect = searchParams.get('redirect') || '/'
-      router.push(redirect)
-      router.refresh()
+      // Show success message with email verification instructions
+      setSuccess(true)
+      setEmail(values.email)
+      form.reset()
     } catch (err) {
       setError('An unexpected error occurred')
       console.error('Signup error:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
+          <h3 className="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">
+            Account created successfully!
+          </h3>
+          <p className="text-sm text-green-700 dark:text-green-300">
+            We've sent a verification email to <strong>{email}</strong>. Please check your inbox and click the verification link to activate your account.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            setSuccess(false)
+            setEmail('')
+          }}
+        >
+          Back to sign up
+        </Button>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Already verified?{' '}
+            <Link href="/auth/login" className="text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
