@@ -14,7 +14,7 @@ BEGIN
   -- Only insert if user exists
   IF default_user_id IS NOT NULL THEN
     -- Insert all earrings
-    INSERT INTO earrings (name, cost_poland, sale_price, stock_qty, sold_qty, active, user_id) VALUES
+    INSERT INTO earrings (name, cost, sale_price, stock_qty, sold_qty, active, user_id) VALUES
     ('Титановый конус №160C', 41.00, 90.00, 0, 0, true, default_user_id),
     ('Камушек №33 (большой циркон в золоте)', 41.00, 90.00, 0, 0, true, default_user_id),
     ('Титановая серёжка №17 (в оправе)', 46.00, 90.00, 0, 0, true, default_user_id),
