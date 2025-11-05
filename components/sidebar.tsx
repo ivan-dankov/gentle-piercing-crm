@@ -9,10 +9,13 @@ import {
   Calendar, 
   Gem, 
   Scissors, 
-  LayoutDashboard 
+  LayoutDashboard,
+  Menu
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { LogoutButton } from '@/components/auth/logout-button'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import { Button } from '@/components/ui/button'
 import type { User } from '@supabase/supabase-js'
 
 const navigation = [
@@ -23,7 +26,7 @@ const navigation = [
   { name: 'Services', href: '/services', icon: Scissors },
 ]
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const supabase = createClient()
@@ -48,7 +51,7 @@ export function Sidebar() {
   }, [supabase.auth])
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-background">
+    <>
       <div className="flex h-16 items-center border-b px-6">
         <h1 className="text-xl font-bold">Gentle Piercing</h1>
       </div>
@@ -60,6 +63,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -81,7 +85,42 @@ export function Sidebar() {
         )}
         <LogoutButton />
       </div>
-    </div>
+    </>
+  )
+}
+
+export function Sidebar() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex h-screen w-64 flex-col border-r bg-background">
+        <SidebarContent />
+      </div>
+
+      {/* Mobile Drawer */}
+      <div className="lg:hidden">
+        <Drawer open={open} onOpenChange={setOpen} direction="left">
+          <DrawerTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed top-4 left-4 z-50 lg:hidden"
+            >
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DrawerTrigger>
+          <DrawerContent className="w-64 h-full flex flex-col">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Navigation</DrawerTitle>
+            </DrawerHeader>
+            <SidebarContent onNavigate={() => setOpen(false)} />
+          </DrawerContent>
+        </Drawer>
+      </div>
+    </>
   )
 }
 

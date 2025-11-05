@@ -40,7 +40,7 @@ export default async function BookingsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Bookings</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Bookings</h1>
       <BookingCalendar bookings={bookingsAny} />
     </div>
   )

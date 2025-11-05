@@ -49,14 +49,14 @@ export default async function ClientDetailPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">{clientData.name}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">{clientData.name}</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Client since {new Date(clientData.created_at).toLocaleDateString()}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <ClientForm client={clientData}>
             <Button>
               <Edit className="h-4 w-4 mr-2" />

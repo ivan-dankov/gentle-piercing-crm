@@ -15,36 +15,42 @@ const localizer = momentLocalizer(moment)
 // Custom toolbar component
 function CustomToolbar({ label, onNavigate, onView, view }: ToolbarProps) {
   return (
-    <div className="mb-4 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onNavigate('PREV')}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <div className="text-lg font-semibold">{label}</div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onNavigate('NEXT')}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onNavigate('TODAY')}
-        >
-          Today
-        </Button>
+    <div className="mb-4 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('PREV')}
+            className="shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-base sm:text-lg font-semibold truncate">{label}</div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('NEXT')}
+            className="shrink-0"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('TODAY')}
+            className="shrink-0"
+          >
+            Today
+          </Button>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant={view === 'month' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onView('month')}
+          className="flex-1 sm:flex-none"
         >
           Month
         </Button>
@@ -52,6 +58,7 @@ function CustomToolbar({ label, onNavigate, onView, view }: ToolbarProps) {
           variant={view === 'week' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onView('week')}
+          className="flex-1 sm:flex-none"
         >
           Week
         </Button>
@@ -59,6 +66,7 @@ function CustomToolbar({ label, onNavigate, onView, view }: ToolbarProps) {
           variant={view === 'day' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onView('day')}
+          className="flex-1 sm:flex-none"
         >
           Day
         </Button>
@@ -66,6 +74,7 @@ function CustomToolbar({ label, onNavigate, onView, view }: ToolbarProps) {
           variant={view === 'agenda' ? 'default' : 'outline'}
           size="sm"
           onClick={() => onView('agenda')}
+          className="flex-1 sm:flex-none"
         >
           Agenda
         </Button>
@@ -118,12 +127,13 @@ export function BookingCalendar({ bookings }: BookingCalendarProps) {
 
   return (
     <>
-      <div className="h-[calc(100dvh-32px-8rem)]">
+      <div className="h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-10rem)]">
         <div className="mb-4 flex items-center justify-end">
           <BookingForm defaultStartTime={selectedSlot || undefined}>
-            <Button>
+            <Button size="sm" className="text-xs sm:text-sm">
               <Plus className="h-4 w-4 mr-2" />
-              New Booking
+              <span className="hidden sm:inline">New Booking</span>
+              <span className="sm:hidden">New</span>
             </Button>
           </BookingForm>
         </div>

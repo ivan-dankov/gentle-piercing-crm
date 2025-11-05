@@ -749,7 +749,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="!max-w-[1000px] !w-[1000px] max-h-[95vh] flex flex-col p-0 gap-0 !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2">
+      <DialogContent className="!max-w-[calc(100vw-2rem)] sm:!max-w-lg md:!max-w-2xl lg:!max-w-4xl xl:!max-w-[1000px] w-full max-h-[95dvh] flex flex-col p-0 gap-0 !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2">
         {dataLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">
@@ -778,7 +778,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
           >
             <div className="flex-1 overflow-y-auto px-6 pt-0 pb-0">
               <div className="space-y-6 py-6">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-2">
               {/* Left Column - Main Fields */}
               <div className="space-y-6">
                 {/* Section 1: Time & Client */}
@@ -1069,110 +1069,116 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                       {serviceItems.map((item, index) => {
                         const selectedService = services.find(s => s.id === item.service_id)
                         return (
-                          <div key={item.id || index} className="grid gap-3 grid-cols-[200px_120px_auto] items-end p-3 border rounded-lg">
-                            <FormField
-                              control={form.control}
-                              name={`service_items.${index}.service_id`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Service</FormLabel>
-                                  <Select
-                                    onValueChange={(value) => {
-                                      field.onChange(value)
-                                      // Update price to base_price when service changes
-                                      const service = services.find(s => s.id === value)
-                                      if (service && !isModel) {
-                                        form.setValue(`service_items.${index}.price`, service.base_price)
-                                      } else if (service && isModel) {
-                                        form.setValue(`service_items.${index}.price`, 0)
-                                      }
-                                    }}
-                                    value={field.value}
-                                  >
-                                    <FormControl>
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select service" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {services.map((service) => (
-                                        <SelectItem key={service.id} value={service.id}>
-                                          {service.name} ({service.duration_minutes} min)
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name={`service_items.${index}.price`}
-                              render={({ field }) => {
-                                const currentPrice = field.value === null || field.value === undefined ? null : Number(field.value)
-                                const basePrice = selectedService ? selectedService.base_price : null
-                                const isPriceDifferent = selectedService && currentPrice !== null && basePrice !== null && currentPrice !== basePrice && !isModel
-                                
-                                return (
-                                  <FormItem>
-                                    <div className="flex items-center gap-1">
-                                      <FormLabel className="text-xs">Price</FormLabel>
-                                      {isPriceDifferent && (
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-4 w-4 p-0 hover:bg-transparent"
-                                          onClick={() => {
-                                            if (selectedService && !isModel) {
-                                              form.setValue(`service_items.${index}.price`, selectedService.base_price)
-                                            }
-                                          }}
-                                        >
-                                          <RefreshCw className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                    <FormControl>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={field.value === null || field.value === undefined ? '' : field.value}
-                                      onChange={(e) => {
-                                        const value = e.target.value
-                                        field.onChange(value === '' ? '' : value)
-                                      }}
-                                      onBlur={(e) => {
-                                        const value = e.target.value
-                                        field.onBlur()
-                                        if (value === '') {
-                                          field.onChange(null)
-                                        } else {
-                                          const numValue = parseFloat(value)
-                                          field.onChange(isNaN(numValue) ? null : numValue)
-                                        }
-                                      }}
-                                      disabled={isModel || !item.service_id}
-                                      className={isModel || !item.service_id ? 'opacity-50' : ''}
-                                      placeholder="0.00"
-                                      name={field.name}
-                                      ref={field.ref}
-                                    />
-                                    </FormControl>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeServiceItem(item.id)}
-                              disabled={serviceItems.length === 1}
-                              className="h-8 w-8"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div key={item.id || index} className="p-3 border rounded-lg space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <FormField
+                                  control={form.control}
+                                  name={`service_items.${index}.service_id`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Service</FormLabel>
+                                      <Select
+                                        onValueChange={(value) => {
+                                          field.onChange(value)
+                                          // Update price to base_price when service changes
+                                          const service = services.find(s => s.id === value)
+                                          if (service && !isModel) {
+                                            form.setValue(`service_items.${index}.price`, service.base_price)
+                                          } else if (service && isModel) {
+                                            form.setValue(`service_items.${index}.price`, 0)
+                                          }
+                                        }}
+                                        value={field.value}
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select service" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {services.map((service) => (
+                                            <SelectItem key={service.id} value={service.id}>
+                                              {service.name} ({service.duration_minutes} min)
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeServiceItem(item.id)}
+                                disabled={serviceItems.length === 1}
+                                className="h-8 w-8 shrink-0 mt-6"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <FormField
+                                control={form.control}
+                                name={`service_items.${index}.price`}
+                                render={({ field }) => {
+                                  const currentPrice = field.value === null || field.value === undefined ? null : Number(field.value)
+                                  const basePrice = selectedService ? selectedService.base_price : null
+                                  const isPriceDifferent = selectedService && currentPrice !== null && basePrice !== null && currentPrice !== basePrice && !isModel
+                                  
+                                  return (
+                                    <FormItem>
+                                      <div className="flex items-center gap-1">
+                                        <FormLabel className="text-xs">Price</FormLabel>
+                                        {isPriceDifferent && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 w-4 p-0 hover:bg-transparent"
+                                            onClick={() => {
+                                              if (selectedService && !isModel) {
+                                                form.setValue(`service_items.${index}.price`, selectedService.base_price)
+                                              }
+                                            }}
+                                          >
+                                            <RefreshCw className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={field.value === null || field.value === undefined ? '' : field.value}
+                                        onChange={(e) => {
+                                          const value = e.target.value
+                                          field.onChange(value === '' ? '' : value)
+                                        }}
+                                        onBlur={(e) => {
+                                          const value = e.target.value
+                                          field.onBlur()
+                                          if (value === '') {
+                                            field.onChange(null)
+                                          } else {
+                                            const numValue = parseFloat(value)
+                                            field.onChange(isNaN(numValue) ? null : numValue)
+                                          }
+                                        }}
+                                        disabled={isModel || !item.service_id}
+                                        className={isModel || !item.service_id ? 'opacity-50' : ''}
+                                        placeholder="0.00"
+                                        name={field.name}
+                                        ref={field.ref}
+                                      />
+                                      </FormControl>
+                                    </FormItem>
+                                  )
+                                }}
+                              />
+                            </div>
                           </div>
                         )
                       })}
@@ -1199,7 +1205,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                       />
                       
                       {travelEnabled && (
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-2">
                           <FormField
                             control={form.control}
                             name="location"
@@ -1315,52 +1321,54 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                         const selectedEarring = earrings.find(e => e.id === item.earring_id)
                         return (
                           <div key={item.id || index} className="p-3 border rounded-lg space-y-3">
-                            <div className="grid gap-3 grid-cols-[200px_auto] items-end">
-                              <FormField
-                                control={form.control}
-                                name={`earring_items.${index}.earring_id`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Earring</FormLabel>
-                                    <Select
-                                      onValueChange={(value) => {
-                                        field.onChange(value)
-                                        // Update price to sale_price when earring changes
-                                        const earring = earrings.find(e => e.id === value)
-                                        if (earring) {
-                                          form.setValue(`earring_items.${index}.price`, earring.sale_price)
-                                        }
-                                      }}
-                                      value={field.value}
-                                    >
-                                      <FormControl>
-                                        <SelectTrigger className="w-full">
-                                          <SelectValue placeholder="Select earring" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {earrings.map((earring) => (
-                                          <SelectItem key={earring.id} value={earring.id}>
-                                            {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </FormItem>
-                                )}
-                              />
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <FormField
+                                  control={form.control}
+                                  name={`earring_items.${index}.earring_id`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Earring</FormLabel>
+                                      <Select
+                                        onValueChange={(value) => {
+                                          field.onChange(value)
+                                          // Update price to sale_price when earring changes
+                                          const earring = earrings.find(e => e.id === value)
+                                          if (earring) {
+                                            form.setValue(`earring_items.${index}.price`, earring.sale_price)
+                                          }
+                                        }}
+                                        value={field.value}
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select earring" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          {earrings.map((earring) => (
+                                            <SelectItem key={earring.id} value={earring.id}>
+                                              {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => removeEarringItem(item.id)}
                                 disabled={earringItems.length === 1}
-                                className="h-8 w-8"
+                                className="h-8 w-8 shrink-0 mt-6"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                            <div className="grid gap-3 grid-cols-[120px_80px] items-end">
+                            <div className="grid gap-3 sm:grid-cols-2">
                               <FormField
                                 control={form.control}
                                 name={`earring_items.${index}.price`}
@@ -1488,52 +1496,54 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                             const selectedEarring = earrings.find(e => e.id === item.earring_id)
                             return (
                               <div key={item.id || index} className="p-3 border rounded-lg space-y-3">
-                                <div className="grid gap-3 grid-cols-[200px_auto] items-end">
-                                  <FormField
-                                    control={form.control}
-                                    name={`broken_earring_items.${index}.earring_id`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel className="text-xs">Earring</FormLabel>
-                                        <Select
-                                          onValueChange={(value) => {
-                                            field.onChange(value)
-                                            // Update cost to base cost when earring changes
-                                            const earring = earrings.find(e => e.id === value)
-                                            if (earring) {
-                                              form.setValue(`broken_earring_items.${index}.cost`, earring.cost || 0)
-                                            }
-                                          }}
-                                          value={field.value}
-                                        >
-                                          <FormControl>
-                                            <SelectTrigger className="w-full">
-                                              <SelectValue placeholder="Select earring" />
-                                            </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent>
-                                            {earrings.map((earring) => (
-                                              <SelectItem key={earring.id} value={earring.id}>
-                                                {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </FormItem>
-                                    )}
-                                  />
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <FormField
+                                      control={form.control}
+                                      name={`broken_earring_items.${index}.earring_id`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-xs">Earring</FormLabel>
+                                          <Select
+                                            onValueChange={(value) => {
+                                              field.onChange(value)
+                                              // Update cost to base cost when earring changes
+                                              const earring = earrings.find(e => e.id === value)
+                                              if (earring) {
+                                                form.setValue(`broken_earring_items.${index}.cost`, earring.cost || 0)
+                                              }
+                                            }}
+                                            value={field.value}
+                                          >
+                                            <FormControl>
+                                              <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select earring" />
+                                              </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                              {earrings.map((earring) => (
+                                                <SelectItem key={earring.id} value={earring.id}>
+                                                  {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => removeBrokenEarringItem(item.id)}
                                     disabled={brokenEarringItems.length === 1}
-                                    className="h-8 w-8"
+                                    className="h-8 w-8 shrink-0 mt-6"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                <div className="grid gap-3 grid-cols-[120px_80px] items-end">
+                                <div className="grid gap-3 sm:grid-cols-2">
                                   <FormField
                                     control={form.control}
                                     name={`broken_earring_items.${index}.cost`}

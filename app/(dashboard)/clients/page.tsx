@@ -21,10 +21,10 @@ export default async function ClientsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Clients</h1>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Clients</h1>
         <ClientForm>
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Client
           </Button>
@@ -37,41 +37,82 @@ export default async function ClientsPage() {
         </CardHeader>
         <CardContent>
           {clientsData && clientsData.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
                 {clientsData.map((client: any) => (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/clients/${client.id}`} className="hover:underline">
-                        {client.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{client.phone || '-'}</TableCell>
-                    <TableCell>{client.source || '-'}</TableCell>
-                    <TableCell>
-                      {new Date(client.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link href={`/clients/${client.id}`}>
-                          <Button variant="ghost" size="sm">View</Button>
-                        </Link>
-                        <DeleteClientButton client={client} />
+                  <Card key={client.id}>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div>
+                          <Link href={`/clients/${client.id}`} className="hover:underline">
+                            <h3 className="font-semibold text-lg">{client.name}</h3>
+                          </Link>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Phone:</span>
+                            <span>{client.phone || '-'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Source:</span>
+                            <span>{client.source || '-'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Created:</span>
+                            <span>{new Date(client.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Link href={`/clients/${client.id}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full">View</Button>
+                          </Link>
+                          <DeleteClientButton client={client} />
+                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientsData.map((client: any) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/clients/${client.id}`} className="hover:underline">
+                            {client.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{client.phone || '-'}</TableCell>
+                        <TableCell>{client.source || '-'}</TableCell>
+                        <TableCell>
+                          {new Date(client.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link href={`/clients/${client.id}`}>
+                              <Button variant="ghost" size="sm">View</Button>
+                            </Link>
+                            <DeleteClientButton client={client} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               No clients yet. Add your first client to get started.

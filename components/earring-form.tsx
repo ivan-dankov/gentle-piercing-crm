@@ -129,7 +129,7 @@ export function EarringForm({ earring, children }: EarringFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{earringData ? 'Edit Earring' : 'Add New Earring'}</DialogTitle>
           <DialogDescription>
