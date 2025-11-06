@@ -4,10 +4,9 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, momentLocalizer, View, Event, ToolbarProps } from 'react-big-calendar'
 import moment from 'moment'
-import { BookingForm } from './booking-form'
 import { BookingDetailsDrawer } from './booking-details-popover'
 import { Button } from './ui/button'
-import { Plus, ChevronLeft, ChevronRight, User, Brush, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, Brush, MapPin } from 'lucide-react'
 import type { BookingWithRelations } from '@/lib/types'
 
 const localizer = momentLocalizer(moment)
@@ -15,36 +14,41 @@ const localizer = momentLocalizer(moment)
 // Custom toolbar component
 function CustomToolbar({ label, onNavigate, onView, view }: ToolbarProps) {
   return (
-    <div className="mb-4 space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('PREV')}
-            className="shrink-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-base sm:text-lg font-semibold truncate">{label}</div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('NEXT')}
-            className="shrink-0"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('TODAY')}
-            className="shrink-0"
-          >
-            Today
-          </Button>
-        </div>
+    <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
+      {/* Left: Today button */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate('TODAY')}
+          className="shrink-0"
+        >
+          Today
+        </Button>
       </div>
+      
+      {/* Center: Date range and arrows */}
+      <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate('PREV')}
+          className="shrink-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-base sm:text-lg font-semibold truncate">{label}</div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate('NEXT')}
+          className="shrink-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Right: View buttons */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant={view === 'month' ? 'default' : 'outline'}
@@ -212,16 +216,7 @@ export function BookingCalendar({ bookings }: BookingCalendarProps) {
 
   return (
     <>
-      <div className="h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-10rem)]">
-        <div className="mb-4 flex items-center justify-end">
-          <BookingForm defaultStartTime={selectedSlot || undefined}>
-            <Button size="sm" className="text-xs sm:text-sm">
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">New Booking</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          </BookingForm>
-        </div>
+      <div className="h-[calc(100dvh-8rem)] sm:h-[calc(100dvh-7rem)]">
         <Calendar
           localizer={localizer}
           events={events}

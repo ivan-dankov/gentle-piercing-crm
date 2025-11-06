@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { dateToCalendarISOString } from '@/lib/date-utils'
 import {
   startOfDay,
   endOfDay,
@@ -26,24 +27,32 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
+  startOfWeek,
+  endOfWeek,
   subDays,
   subMonths,
+  subWeeks,
 } from 'date-fns'
 import type { DateRange } from 'react-day-picker'
 
-type Preset = 'today' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'allTime'
+type Preset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'allTime' | 'custom'
 
 const presets: { label: string; value: Preset }[] = [
   { label: 'Today', value: 'today' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'This Week', value: 'thisWeek' },
+  { label: 'Last Week', value: 'lastWeek' },
   { label: 'Last 7 Days', value: 'last7days' },
   { label: 'Last 30 Days', value: 'last30days' },
   { label: 'This Month', value: 'thisMonth' },
   { label: 'Last Month', value: 'lastMonth' },
   { label: 'This Year', value: 'thisYear' },
   { label: 'All Time', value: 'allTime' },
+  { label: 'Custom', value: 'custom' },
 ]
 
 const STORAGE_KEY = 'dashboard-date-range'
+const COOKIE_KEY = 'dashboard-date-range'
 
 function saveToLocalStorage(preset: Preset, dateRange: DateRange | undefined) {
   if (typeof window === 'undefined') return
@@ -55,8 +64,12 @@ function saveToLocalStorage(preset: Preset, dateRange: DateRange | undefined) {
       to: dateRange?.to?.toISOString() || null,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    
+    // Also save to cookie so server can read it
+    const cookieValue = JSON.stringify(data)
+    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(cookieValue)}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`
   } catch (error) {
-    console.error('Failed to save date range to localStorage:', error)
+    console.error('Failed to save date range to localStorage/cookie:', error)
   }
 }
 
@@ -64,17 +77,33 @@ function loadFromLocalStorage(): { preset: Preset; from: string | null; to: stri
   if (typeof window === 'undefined') return null
   
   try {
+    // Try localStorage first
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return null
-    
-    const data = JSON.parse(stored)
-    return {
-      preset: data.preset || 'allTime',
-      from: data.from || null,
-      to: data.to || null,
+    if (stored) {
+      const data = JSON.parse(stored)
+      return {
+        preset: data.preset || 'allTime',
+        from: data.from || null,
+        to: data.to || null,
+      }
     }
+    
+    // Fallback to cookie
+    const cookies = document.cookie.split(';')
+    const cookie = cookies.find(c => c.trim().startsWith(`${COOKIE_KEY}=`))
+    if (cookie) {
+      const value = decodeURIComponent(cookie.split('=')[1])
+      const data = JSON.parse(value)
+      return {
+        preset: data.preset || 'allTime',
+        from: data.from || null,
+        to: data.to || null,
+      }
+    }
+    
+    return null
   } catch (error) {
-    console.error('Failed to load date range from localStorage:', error)
+    console.error('Failed to load date range from localStorage/cookie:', error)
     return null
   }
 }
@@ -87,6 +116,23 @@ function getPresetDates(preset: Preset): { from: Date; to: Date } | null {
       return {
         from: startOfDay(today),
         to: endOfDay(today),
+      }
+    case 'yesterday':
+      const yesterday = subDays(today, 1)
+      return {
+        from: startOfDay(yesterday),
+        to: endOfDay(yesterday),
+      }
+    case 'thisWeek':
+      return {
+        from: startOfWeek(today, { weekStartsOn: 1 }), // Monday
+        to: endOfWeek(today, { weekStartsOn: 1 }),
+      }
+    case 'lastWeek':
+      const lastWeek = subWeeks(today, 1)
+      return {
+        from: startOfWeek(lastWeek, { weekStartsOn: 1 }), // Monday
+        to: endOfWeek(lastWeek, { weekStartsOn: 1 }),
       }
     case 'last7days':
       return {
@@ -115,10 +161,38 @@ function getPresetDates(preset: Preset): { from: Date; to: Date } | null {
         to: endOfDay(today),
       }
     case 'allTime':
+    case 'custom':
       return null
     default:
       return null
   }
+}
+
+function detectPresetFromRange(range: DateRange | undefined): Preset {
+  if (!range?.from || !range?.to) {
+    return 'allTime'
+  }
+  
+  // Check each preset to see if the range matches
+  const presetsToCheck: Preset[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear']
+  
+  for (const preset of presetsToCheck) {
+    const presetDates = getPresetDates(preset)
+    if (presetDates) {
+      // Compare dates by their ISO string (ignoring time)
+      const rangeFromStr = dateToCalendarISOString(range.from)
+      const rangeToStr = dateToCalendarISOString(range.to)
+      const presetFromStr = dateToCalendarISOString(presetDates.from)
+      const presetToStr = dateToCalendarISOString(presetDates.to)
+      
+      if (rangeFromStr === presetFromStr && rangeToStr === presetToStr) {
+        return preset
+      }
+    }
+  }
+  
+  // If no preset matches, it's a custom range
+  return 'custom'
 }
 
 export function DashboardDateRangePicker() {
@@ -134,6 +208,7 @@ export function DashboardDateRangePicker() {
     const toParam = searchParams.get('to')
     const presetParam = searchParams.get('preset') as Preset | null
 
+    // If URL has params, use them (highest priority)
     if (presetParam && presets.some(p => p.value === presetParam)) {
       setPreset(presetParam)
       const presetDates = getPresetDates(presetParam)
@@ -145,25 +220,37 @@ export function DashboardDateRangePicker() {
     } else if (fromParam && toParam) {
       const from = new Date(fromParam)
       const to = new Date(toParam)
-      setDate({ from, to })
-      setPreset('allTime') // Custom range
+      const dateRange = { from, to }
+      setDate(dateRange)
+      const detectedPreset = detectPresetFromRange(dateRange)
+      setPreset(detectedPreset)
     } else {
-      // No URL params, try loading from localStorage
+      // No URL params, try loading from localStorage/cookie
+      // Server already reads from cookie, so this is just for client-side display
       const stored = loadFromLocalStorage()
       if (stored) {
         if (stored.preset && presets.some(p => p.value === stored.preset)) {
           setPreset(stored.preset)
-          const presetDates = getPresetDates(stored.preset)
-          if (presetDates) {
-            setDate({ from: presetDates.from, to: presetDates.to })
+          // For 'custom' preset, use stored dates instead of generating preset dates
+          if (stored.preset === 'custom' && stored.from && stored.to) {
+            const from = new Date(stored.from)
+            const to = new Date(stored.to)
+            setDate({ from, to })
           } else {
-            setDate({ from: undefined, to: undefined })
+            const presetDates = getPresetDates(stored.preset)
+            if (presetDates) {
+              setDate({ from: presetDates.from, to: presetDates.to })
+            } else {
+              setDate({ from: undefined, to: undefined })
+            }
           }
         } else if (stored.from && stored.to) {
           const from = new Date(stored.from)
           const to = new Date(stored.to)
-          setDate({ from, to })
-          setPreset('allTime')
+          const dateRange = { from, to }
+          setDate(dateRange)
+          const detectedPreset = detectPresetFromRange(dateRange)
+          setPreset(detectedPreset)
         }
       }
     }
@@ -177,8 +264,8 @@ export function DashboardDateRangePicker() {
     params.set('preset', newPreset)
     
     if (presetDates) {
-      params.set('from', presetDates.from.toISOString())
-      params.set('to', presetDates.to.toISOString())
+      params.set('from', dateToCalendarISOString(presetDates.from))
+      params.set('to', dateToCalendarISOString(presetDates.to))
       setDate({ from: presetDates.from, to: presetDates.to })
       saveToLocalStorage(newPreset, { from: presetDates.from, to: presetDates.to })
     } else {
@@ -194,21 +281,30 @@ export function DashboardDateRangePicker() {
   const handleDateSelect = (range: DateRange | undefined) => {
     setDate(range)
     
+    const detectedPreset = detectPresetFromRange(range)
+    setPreset(detectedPreset)
+    
     const params = new URLSearchParams(searchParams.toString())
-    params.delete('preset') // Remove preset when custom range is selected
     
     if (range?.from && range?.to) {
-      params.set('from', range.from.toISOString())
-      params.set('to', range.to.toISOString())
-      setPreset('allTime') // Mark as custom
-      saveToLocalStorage('allTime', range)
+      params.set('from', dateToCalendarISOString(range.from))
+      params.set('to', dateToCalendarISOString(range.to))
+      // Only set preset param if it's not custom (custom ranges don't need preset param)
+      if (detectedPreset !== 'custom') {
+        params.set('preset', detectedPreset)
+      } else {
+        params.delete('preset')
+      }
+      saveToLocalStorage(detectedPreset, range)
     } else if (range?.from) {
-      params.set('from', range.from.toISOString())
+      params.set('from', dateToCalendarISOString(range.from))
       params.delete('to')
-      saveToLocalStorage('allTime', range)
+      params.delete('preset')
+      saveToLocalStorage('custom', range)
     } else {
       params.delete('from')
       params.delete('to')
+      params.delete('preset')
       saveToLocalStorage('allTime', undefined)
     }
     

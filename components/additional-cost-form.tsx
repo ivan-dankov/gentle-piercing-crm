@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { format } from 'date-fns'
+import { formatDateForDatabase } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -87,10 +88,11 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
         throw new Error('You must be logged in to create an additional cost')
       }
 
+      // Format date for database storage using consistent utility
       const costData = {
         type: values.type,
         amount: values.amount,
-        date: format(values.date, 'yyyy-MM-dd'),
+        date: formatDateForDatabase(values.date),
         description: values.description || null,
         user_id: user.id,
       }

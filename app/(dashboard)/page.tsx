@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt } from 'lucide-react'
 import { DashboardDateRangePicker } from '@/components/dashboard-date-range-picker'
+import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString } from '@/lib/date-utils'
+import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, startOfWeek, endOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
 import {
   Table,
   TableBody,
@@ -21,17 +24,102 @@ interface DashboardPageProps {
 export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const params = await searchParams
   const supabase = await createClient()
+  const cookieStore = await cookies()
 
-  // Parse date range from searchParams
-  let dateFilter: { from?: Date; to?: Date } = {}
-  if (params.from && params.to) {
-    dateFilter.from = new Date(params.from)
-    dateFilter.to = new Date(params.to)
-    // Set to end of day for 'to' date
-    if (dateFilter.to) {
-      dateFilter.to.setHours(23, 59, 59, 999)
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // Get user's timezone (default to Europe/Warsaw)
+  let timezone = 'Europe/Warsaw'
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('timezone')
+      .eq('user_id', user.id)
+      .single()
+    
+    if (profile && typeof profile === 'object' && 'timezone' in profile) {
+      const profileTimezone = (profile as { timezone?: string }).timezone
+      if (typeof profileTimezone === 'string') {
+        timezone = profileTimezone
+      }
     }
   }
+
+  // Get date range from URL params or cookie (for server-side rendering)
+  let fromParam = params.from || null
+  let toParam = params.to || null
+  
+  // If no URL params, try reading from cookie
+  if (!fromParam || !toParam) {
+    try {
+      const dateRangeCookie = cookieStore.get('dashboard-date-range')
+      if (dateRangeCookie?.value) {
+        const cookieData = JSON.parse(decodeURIComponent(dateRangeCookie.value))
+        
+        // If preset is "allTime", we don't need dates (show all data)
+        if (cookieData.preset === 'allTime') {
+          fromParam = null
+          toParam = null
+        } else if (cookieData.preset && ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear'].includes(cookieData.preset)) {
+          // For presets, regenerate dates on server side (dates in cookie might be stale)
+          // This ensures "today" always means today, not the day it was last selected
+          const today = new Date()
+          
+          let presetDates: { from: Date; to: Date } | null = null
+          switch (cookieData.preset) {
+            case 'today':
+              presetDates = { from: startOfDay(today), to: endOfDay(today) }
+              break
+            case 'yesterday':
+              const yesterday = subDays(today, 1)
+              presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
+              break
+            case 'thisWeek':
+              presetDates = { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) }
+              break
+            case 'lastWeek':
+              const lastWeek = subWeeks(today, 1)
+              presetDates = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) }
+              break
+            case 'last7days':
+              presetDates = { from: startOfDay(subDays(today, 6)), to: endOfDay(today) }
+              break
+            case 'last30days':
+              presetDates = { from: startOfDay(subDays(today, 29)), to: endOfDay(today) }
+              break
+            case 'thisMonth':
+              presetDates = { from: startOfMonth(today), to: endOfMonth(today) }
+              break
+            case 'lastMonth':
+              const lastMonth = subMonths(today, 1)
+              presetDates = { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) }
+              break
+            case 'thisYear':
+              presetDates = { from: startOfYear(today), to: endOfDay(today) }
+              break
+          }
+          
+          if (presetDates) {
+            // Convert to calendar ISO strings for consistency
+            fromParam = dateToCalendarISOString(presetDates.from)
+            toParam = dateToCalendarISOString(presetDates.to)
+          }
+        } else if (cookieData.from && cookieData.to) {
+          // Custom date range - use stored dates
+          fromParam = cookieData.from
+          toParam = cookieData.to
+        }
+      }
+    } catch (error) {
+      // Ignore cookie parsing errors
+      console.error('Failed to parse date range cookie:', error)
+    }
+  }
+
+  // Parse date range from searchParams or cookie using consistent date utilities with timezone
+  const bookingDateFilter = createBookingDateFilter(fromParam, toParam, timezone)
+  const additionalCostDateFilter = createAdditionalCostDateFilter(fromParam, toParam)
 
   // Build query with date filter
   let bookingsQuery = supabase
@@ -76,34 +164,30 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       )
     `)
 
-  if (dateFilter.from) {
-    bookingsQuery = bookingsQuery.gte('start_time', dateFilter.from.toISOString())
+  if (bookingDateFilter.from) {
+    bookingsQuery = bookingsQuery.gte('start_time', bookingDateFilter.from.toISOString())
   }
-  if (dateFilter.to) {
-    bookingsQuery = bookingsQuery.lte('start_time', dateFilter.to.toISOString())
+  if (bookingDateFilter.to) {
+    bookingsQuery = bookingsQuery.lte('start_time', bookingDateFilter.to.toISOString())
   }
 
   const bookingsResult = await bookingsQuery
   const bookingsData = (bookingsResult.data as any[]) || []
+  
+  // Note: We use an expanded date range (1 day on each side) to ensure bookings
+  // made at 00:00 local time in any timezone are included. The database query
+  // handles the filtering, and the expanded range ensures we don't miss edge cases.
 
   // Fetch additional costs within date range
   let additionalCostsQuery = supabase
     .from('additional_costs')
     .select('*')
 
-  if (dateFilter.from) {
-    // Format date as YYYY-MM-DD using UTC methods to avoid timezone shifts
-    // Since dates come from URL as ISO strings (UTC), we use UTC methods for consistency
-    const fromDate = new Date(dateFilter.from)
-    const fromDateStr = `${fromDate.getUTCFullYear()}-${String(fromDate.getUTCMonth() + 1).padStart(2, '0')}-${String(fromDate.getUTCDate()).padStart(2, '0')}`
-    additionalCostsQuery = additionalCostsQuery.gte('date', fromDateStr)
+  if (additionalCostDateFilter.fromDateStr) {
+    additionalCostsQuery = additionalCostsQuery.gte('date', additionalCostDateFilter.fromDateStr)
   }
-  if (dateFilter.to) {
-    // Format date as YYYY-MM-DD using UTC methods to avoid timezone shifts
-    // Since dates come from URL as ISO strings (UTC), we use UTC methods for consistency
-    const toDate = new Date(dateFilter.to)
-    const toDateStr = `${toDate.getUTCFullYear()}-${String(toDate.getUTCMonth() + 1).padStart(2, '0')}-${String(toDate.getUTCDate()).padStart(2, '0')}`
-    additionalCostsQuery = additionalCostsQuery.lte('date', toDateStr)
+  if (additionalCostDateFilter.toDateStr) {
+    additionalCostsQuery = additionalCostsQuery.lte('date', additionalCostDateFilter.toDateStr)
   }
 
   const additionalCostsResult = await additionalCostsQuery
