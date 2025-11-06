@@ -16,7 +16,6 @@ export interface Earring {
   category: string | null;
   cost: number | null;
   sale_price: number;
-  stock_qty: number;
   sold_qty: number;
   active: boolean;
   created_at: string;

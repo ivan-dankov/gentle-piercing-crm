@@ -17,13 +17,55 @@ function Command({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive>) {
+  const commandRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const command = commandRef.current
+    if (!command) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Find the CommandList element
+      const list = command.querySelector('[data-slot="command-list"]') as HTMLElement
+      if (list && list.scrollHeight > list.clientHeight) {
+        // Check if we're at the boundaries
+        const isAtTop = list.scrollTop === 0
+        const isAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1
+        
+        // If scrolling down and at bottom, or scrolling up and at top, prevent default
+        if ((e.deltaY > 0 && isAtBottom) || (e.deltaY < 0 && isAtTop)) {
+          // Allow parent scroll if at boundaries
+          return
+        }
+        
+        // Otherwise, handle scroll in the list
+        list.scrollTop += e.deltaY
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+
+    command.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      command.removeEventListener('wheel', handleWheel)
+    }
+  }, [])
+
   return (
     <CommandPrimitive
+      ref={commandRef}
       data-slot="command"
       className={cn(
         "bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md",
         className
       )}
+      shouldFilter={true}
+      filter={(value, search) => {
+        // Allow substring matching (search anywhere in the string, including middle)
+        if (!search) return 1
+        const normalizedValue = value.toLowerCase()
+        const normalizedSearch = search.toLowerCase()
+        return normalizedValue.includes(normalizedSearch) ? 1 : 0
+      }}
       {...props}
     />
   )

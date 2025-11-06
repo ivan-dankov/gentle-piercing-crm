@@ -828,7 +828,6 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                disabled={(date) => date < new Date()}
                               />
                               <div className="p-3 border-t">
                                 <Input
@@ -861,17 +860,6 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                       name="client_id"
                       render={({ field }) => {
                         const [open, setOpen] = useState(false)
-                        const [searchQuery, setSearchQuery] = useState('')
-                        
-                        // Filter clients by name or phone
-                        const filteredClients = clients.filter(client => {
-                          if (!searchQuery) return true
-                          const query = searchQuery.toLowerCase()
-                          return (
-                            client.name.toLowerCase().includes(query) ||
-                            (client.phone && client.phone.toLowerCase().includes(query))
-                          )
-                        })
                         
                         const selectedClient = clients.find(c => c.id === field.value)
                         
@@ -884,6 +872,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   <Button
                                     variant="outline"
                                     role="combobox"
+                                    aria-expanded={open}
                                     className="w-full justify-between"
                                     type="button"
                                   >
@@ -896,14 +885,10 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   </Button>
                                 </FormControl>
                               </PopoverTrigger>
-                              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[400px] flex flex-col" align="start">
-                                <Command className="flex flex-col">
-                                  <CommandInput 
-                                    placeholder="Search by name or phone..." 
-                                    value={searchQuery}
-                                    onValueChange={setSearchQuery}
-                                  />
-                                  <CommandList className="flex-1 min-h-0">
+                              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="Search by name or phone..." />
+                                  <CommandList>
                                     <CommandEmpty>No client found.</CommandEmpty>
                                     <CommandGroup>
                                       <CommandItem
@@ -911,7 +896,6 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                         onSelect={() => {
                                           field.onChange('new')
                                           setOpen(false)
-                                          setSearchQuery('')
                                         }}
                                       >
                                         <Check
@@ -922,14 +906,14 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                         />
                                         New client
                                       </CommandItem>
-                                      {filteredClients.map((client) => (
+                                      {clients.map((client) => (
                                         <CommandItem
                                           key={client.id}
-                                          value={client.id}
+                                          value={`${client.name} ${client.phone || ''}`.trim()}
+                                          keywords={[client.id, client.name, client.phone || '']}
                                           onSelect={() => {
                                             field.onChange(client.id)
                                             setOpen(false)
-                                            setSearchQuery('')
                                           }}
                                         >
                                           <Check
@@ -1326,35 +1310,67 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                 <FormField
                                   control={form.control}
                                   name={`earring_items.${index}.earring_id`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-xs">Earring</FormLabel>
-                                      <Select
-                                        onValueChange={(value) => {
-                                          field.onChange(value)
-                                          // Update price to sale_price when earring changes
-                                          const earring = earrings.find(e => e.id === value)
-                                          if (earring) {
-                                            form.setValue(`earring_items.${index}.price`, earring.sale_price)
-                                          }
-                                        }}
-                                        value={field.value}
-                                      >
-                                        <FormControl>
-                                          <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select earring" />
-                                          </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                          {earrings.map((earring) => (
-                                            <SelectItem key={earring.id} value={earring.id}>
-                                              {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </FormItem>
-                                  )}
+                                  render={({ field }) => {
+                                    const [open, setOpen] = useState(false)
+                                    
+                                    const selectedEarring = earrings.find(e => e.id === field.value)
+                                    
+                                    return (
+                                      <FormItem>
+                                        <FormLabel className="text-xs">Earring</FormLabel>
+                                        <Popover open={open} onOpenChange={setOpen}>
+                                          <PopoverTrigger asChild>
+                                            <FormControl>
+                                              <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={open}
+                                                className="w-full justify-between"
+                                                type="button"
+                                              >
+                                                {selectedEarring 
+                                                  ? selectedEarring.name
+                                                  : 'Select earring...'}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                              </Button>
+                                            </FormControl>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                            <Command>
+                                              <CommandInput placeholder="Search earrings..." />
+                                              <CommandList>
+                                                <CommandEmpty>No earring found.</CommandEmpty>
+                                                <CommandGroup>
+                                                  {earrings.map((earring) => (
+                                                    <CommandItem
+                                                      key={earring.id}
+                                                      value={earring.name}
+                                                      keywords={[earring.id, earring.name]}
+                                                      onSelect={() => {
+                                                        field.onChange(earring.id)
+                                                        // Update price to sale_price when earring changes
+                                                        form.setValue(`earring_items.${index}.price`, earring.sale_price)
+                                                        setOpen(false)
+                                                      }}
+                                                    >
+                                                      <Check
+                                                        className={cn(
+                                                          "mr-2 h-4 w-4",
+                                                          field.value === earring.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                      />
+                                                      {earring.name}
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )
+                                  }}
                                 />
                               </div>
                               <Button
@@ -1501,35 +1517,67 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                     <FormField
                                       control={form.control}
                                       name={`broken_earring_items.${index}.earring_id`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-xs">Earring</FormLabel>
-                                          <Select
-                                            onValueChange={(value) => {
-                                              field.onChange(value)
-                                              // Update cost to base cost when earring changes
-                                              const earring = earrings.find(e => e.id === value)
-                                              if (earring) {
-                                                form.setValue(`broken_earring_items.${index}.cost`, earring.cost || 0)
-                                              }
-                                            }}
-                                            value={field.value}
-                                          >
-                                            <FormControl>
-                                              <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select earring" />
-                                              </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                              {earrings.map((earring) => (
-                                                <SelectItem key={earring.id} value={earring.id}>
-                                                  {earring.name} {earring.stock_qty > 0 ? `(Stock: ${earring.stock_qty})` : '(Out of stock)'}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </FormItem>
-                                      )}
+                                      render={({ field }) => {
+                                        const [open, setOpen] = useState(false)
+                                        
+                                        const selectedEarring = earrings.find(e => e.id === field.value)
+                                        
+                                        return (
+                                          <FormItem>
+                                            <FormLabel className="text-xs">Earring</FormLabel>
+                                            <Popover open={open} onOpenChange={setOpen}>
+                                              <PopoverTrigger asChild>
+                                                <FormControl>
+                                                  <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={open}
+                                                    className="w-full justify-between"
+                                                    type="button"
+                                                  >
+                                                    {selectedEarring 
+                                                      ? selectedEarring.name
+                                                      : 'Select earring...'}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                  </Button>
+                                                </FormControl>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                                <Command>
+                                                  <CommandInput placeholder="Search earrings..." />
+                                                  <CommandList>
+                                                    <CommandEmpty>No earring found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                      {earrings.map((earring) => (
+                                                        <CommandItem
+                                                          key={earring.id}
+                                                          value={earring.name}
+                                                          keywords={[earring.id, earring.name]}
+                                                          onSelect={() => {
+                                                            field.onChange(earring.id)
+                                                            // Update cost to base cost when earring changes
+                                                            form.setValue(`broken_earring_items.${index}.cost`, earring.cost || 0)
+                                                            setOpen(false)
+                                                          }}
+                                                        >
+                                                          <Check
+                                                            className={cn(
+                                                              "mr-2 h-4 w-4",
+                                                              field.value === earring.id ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                          />
+                                                          {earring.name}
+                                                        </CommandItem>
+                                                      ))}
+                                                    </CommandGroup>
+                                                  </CommandList>
+                                                </Command>
+                                              </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )
+                                      }}
                                     />
                                   </div>
                                   <Button

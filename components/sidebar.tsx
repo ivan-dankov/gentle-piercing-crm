@@ -10,7 +10,8 @@ import {
   Gem, 
   Scissors, 
   LayoutDashboard,
-  Menu
+  Menu,
+  Receipt
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { LogoutButton } from '@/components/auth/logout-button'
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Bookings', href: '/bookings', icon: Calendar },
   { name: 'Earrings', href: '/earrings', icon: Gem },
   { name: 'Services', href: '/services', icon: Scissors },
+  { name: 'Additional Costs', href: '/additional-costs', icon: Receipt },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {

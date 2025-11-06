@@ -86,9 +86,49 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const bookingsResult = await bookingsQuery
   const bookingsData = (bookingsResult.data as any[]) || []
 
+  // Fetch additional costs within date range
+  let additionalCostsQuery = supabase
+    .from('additional_costs')
+    .select('*')
+
+  if (dateFilter.from) {
+    // Format date as YYYY-MM-DD in local timezone, not UTC
+    const fromDate = new Date(dateFilter.from)
+    const fromDateStr = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`
+    additionalCostsQuery = additionalCostsQuery.gte('date', fromDateStr)
+  }
+  if (dateFilter.to) {
+    // Format date as YYYY-MM-DD in local timezone, not UTC
+    const toDate = new Date(dateFilter.to)
+    const toDateStr = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}-${String(toDate.getDate()).padStart(2, '0')}`
+    additionalCostsQuery = additionalCostsQuery.lte('date', toDateStr)
+  }
+
+  const additionalCostsResult = await additionalCostsQuery
+  const additionalCostsData = (additionalCostsResult.data as any[]) || []
+
+  // Calculate additional costs by category
+  const additionalCostsByCategory: Record<string, number> = {
+    rent: 0,
+    ads: 0,
+    print: 0,
+    consumables: 0,
+    other: 0,
+  }
+
+  additionalCostsData.forEach((cost: any) => {
+    if (cost.type && additionalCostsByCategory.hasOwnProperty(cost.type)) {
+      additionalCostsByCategory[cost.type] += cost.amount || 0
+    }
+  })
+
+  const totalAdditionalCosts = Object.values(additionalCostsByCategory).reduce((sum, val) => sum + val, 0)
+
   // Calculate financial metrics
   const totalRevenue = bookingsData.reduce((sum, b: any) => sum + (b.total_paid || 0), 0) || 0
-  const totalProfit = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
+  const totalProfitFromBookings = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
+  // Subtract additional costs from profit since they're not included in individual booking profit calculations
+  const totalProfit = totalProfitFromBookings - totalAdditionalCosts
   const totalBookings = bookingsData.length
 
   // Calculate costs breakdown
@@ -130,7 +170,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     totalTax += booking.tax_amount || 0
   })
 
-  const totalCosts = totalEarringCosts + totalTravelFees + totalBooksyFees + totalBrokenEarringLosses + totalTax
+  const totalCosts = totalEarringCosts + totalTravelFees + totalBooksyFees + totalBrokenEarringLosses + totalTax + totalAdditionalCosts
 
   // Calculate averages per booking
   const avgRevenuePerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0
@@ -286,6 +326,52 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
               </div>
               <span className="text-sm font-bold">${totalTax.toFixed(2)}</span>
             </div>
+            {totalAdditionalCosts > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold">Additional Costs</span>
+                    </div>
+                    <span className="text-sm font-bold">${totalAdditionalCosts.toFixed(2)}</span>
+                  </div>
+                  <div className="pl-6 space-y-1">
+                    {additionalCostsByCategory.rent > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Rent</span>
+                        <span className="font-medium">${additionalCostsByCategory.rent.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {additionalCostsByCategory.ads > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Ads</span>
+                        <span className="font-medium">${additionalCostsByCategory.ads.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {additionalCostsByCategory.print > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Print</span>
+                        <span className="font-medium">${additionalCostsByCategory.print.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {additionalCostsByCategory.consumables > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Consumables</span>
+                        <span className="font-medium">${additionalCostsByCategory.consumables.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {additionalCostsByCategory.other > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Other</span>
+                        <span className="font-medium">${additionalCostsByCategory.other.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -40,10 +40,6 @@ const earringSchema = z.object({
     (val) => val === '' || val === null || val === undefined ? undefined : Number(val),
     z.number().min(0, 'Sale price is required')
   ),
-  stock_qty: z.preprocess(
-    (val) => val === '' || val === null || val === undefined ? undefined : Number(val),
-    z.number().int().min(0)
-  ),
   sold_qty: z.preprocess(
     (val) => val === '' || val === null || val === undefined ? undefined : Number(val),
     z.number().int().min(0)
@@ -72,7 +68,6 @@ export function EarringForm({ earring, children }: EarringFormProps) {
     category: earringData?.category || '',
     cost: earringData?.cost ?? null,
     sale_price: earringData?.sale_price || 0,
-    stock_qty: earringData?.stock_qty || 0,
     sold_qty: earringData?.sold_qty || 0,
     active: earringData?.active ?? true,
   })
@@ -228,39 +223,6 @@ export function EarringForm({ earring, children }: EarringFormProps) {
                             field.onChange(undefined)
                           } else {
                             const numValue = parseFloat(value)
-                            field.onChange(isNaN(numValue) ? undefined : numValue)
-                          }
-                        }}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                // @ts-ignore
-                control={form.control}
-                name="stock_qty"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stock Quantity</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        value={field.value === null || field.value === undefined ? '' : field.value}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          field.onChange(value === '' ? '' : value)
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value
-                          field.onBlur()
-                          if (value === '') {
-                            field.onChange(undefined)
-                          } else {
-                            const numValue = parseInt(value, 10)
                             field.onChange(isNaN(numValue) ? undefined : numValue)
                           }
                         }}
