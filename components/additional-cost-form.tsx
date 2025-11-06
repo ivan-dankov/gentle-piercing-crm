@@ -98,7 +98,8 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
       if (cost) {
         const { error } = await supabase
           .from('additional_costs')
-          .update(costData as any)
+          // @ts-expect-error - Supabase types issue
+          .update(costData)
           .eq('id', cost.id)
         if (error) throw error
         setOpen(false)
@@ -108,6 +109,7 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
       } else {
         const { error } = await supabase
           .from('additional_costs')
+          // @ts-expect-error - Supabase types issue
           .insert([costData])
         if (error) throw error
         setOpen(false)
