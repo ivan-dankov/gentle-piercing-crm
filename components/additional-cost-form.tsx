@@ -98,7 +98,7 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
       if (cost) {
         const { error } = await supabase
           .from('additional_costs')
-          .update(costData)
+          .update(costData as any)
           .eq('id', cost.id)
         if (error) throw error
         setOpen(false)
