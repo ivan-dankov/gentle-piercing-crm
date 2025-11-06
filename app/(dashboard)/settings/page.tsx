@@ -21,7 +21,13 @@ export default async function SettingsPage() {
     .eq('user_id', user.id)
     .single()
 
-  const timezone = profile?.timezone || 'Europe/Warsaw'
+  let timezone = 'Europe/Warsaw'
+  if (profile && typeof profile === 'object' && 'timezone' in profile) {
+    const profileTimezone = (profile as { timezone?: string }).timezone
+    if (typeof profileTimezone === 'string') {
+      timezone = profileTimezone
+    }
+  }
 
   return (
     <div className="space-y-6">

@@ -284,6 +284,7 @@ export function SettingsForm({ initialTimezone }: SettingsFormProps) {
       // Update or insert user profile
       const { error } = await supabase
         .from('user_profiles')
+        // @ts-expect-error - Supabase types issue
         .upsert({
           user_id: user.id,
           timezone: values.timezone,
