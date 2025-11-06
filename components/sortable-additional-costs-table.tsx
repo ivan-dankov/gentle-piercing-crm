@@ -17,9 +17,11 @@ const categoryLabels: Record<string, string> = {
   other: 'Other',
 }
 
+type AdditionalCostCategory = 'rent' | 'ads' | 'print' | 'consumables' | 'other'
+
 interface AdditionalCost {
   id: string
-  type: string
+  type: AdditionalCostCategory
   amount: number
   date: string
   description: string | null
