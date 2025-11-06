@@ -8,16 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableTableHeader, SortDirection } from '@/components/sortable-table-header'
 import { EarringForm } from '@/components/earring-form'
 import { DeleteEarringButton } from '@/components/delete-earring-button'
-
-interface Earring {
-  id: string
-  name: string
-  category: string | null
-  cost: number | null
-  sale_price: number
-  sold_qty: number
-  active: boolean
-}
+import type { Earring } from '@/lib/types'
 
 interface SortableEarringsTableProps {
   earrings: Earring[]

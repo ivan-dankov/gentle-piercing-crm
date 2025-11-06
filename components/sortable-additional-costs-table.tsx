@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableTableHeader, SortDirection } from '@/components/sortable-table-header'
 import { AdditionalCostForm } from '@/components/additional-cost-form'
 import { DeleteAdditionalCostButton } from '@/components/delete-additional-cost-button'
+import type { AdditionalCost } from '@/lib/types'
 
 const categoryLabels: Record<string, string> = {
   rent: 'Rent',
@@ -15,16 +16,6 @@ const categoryLabels: Record<string, string> = {
   print: 'Print',
   consumables: 'Consumables',
   other: 'Other',
-}
-
-type AdditionalCostCategory = 'rent' | 'ads' | 'print' | 'consumables' | 'other'
-
-interface AdditionalCost {
-  id: string
-  type: AdditionalCostCategory
-  amount: number
-  date: string
-  description: string | null
 }
 
 interface SortableAdditionalCostsTableProps {

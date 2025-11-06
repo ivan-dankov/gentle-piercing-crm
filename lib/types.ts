@@ -1,5 +1,6 @@
 export type ClientSource = 'booksy' | 'instagram' | 'referral' | 'walk-in';
 export type PaymentMethod = 'cash' | 'blik';
+export type AdditionalCostCategory = 'rent' | 'ads' | 'print' | 'consumables' | 'other';
 
 export interface Client {
   id: string;
@@ -7,6 +8,16 @@ export interface Client {
   phone: string | null;
   source: ClientSource | null;
   notes: string | null;
+  created_at: string;
+}
+
+export interface AdditionalCost {
+  id: string;
+  user_id: string;
+  type: AdditionalCostCategory;
+  amount: number;
+  date: string;
+  description: string | null;
   created_at: string;
 }
 

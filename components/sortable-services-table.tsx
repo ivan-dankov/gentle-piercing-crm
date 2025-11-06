@@ -8,14 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableTableHeader, SortDirection } from '@/components/sortable-table-header'
 import { ServiceForm } from '@/components/service-form'
 import { DeleteServiceButton } from '@/components/delete-service-button'
-
-interface Service {
-  id: string
-  name: string
-  duration_minutes: number
-  base_price: number
-  active: boolean
-}
+import type { Service } from '@/lib/types'
 
 interface SortableServicesTableProps {
   services: Service[]
