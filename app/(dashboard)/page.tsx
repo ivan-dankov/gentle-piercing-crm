@@ -92,15 +92,17 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     .select('*')
 
   if (dateFilter.from) {
-    // Format date as YYYY-MM-DD in local timezone, not UTC
+    // Format date as YYYY-MM-DD using UTC methods to avoid timezone shifts
+    // Since dates come from URL as ISO strings (UTC), we use UTC methods for consistency
     const fromDate = new Date(dateFilter.from)
-    const fromDateStr = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`
+    const fromDateStr = `${fromDate.getUTCFullYear()}-${String(fromDate.getUTCMonth() + 1).padStart(2, '0')}-${String(fromDate.getUTCDate()).padStart(2, '0')}`
     additionalCostsQuery = additionalCostsQuery.gte('date', fromDateStr)
   }
   if (dateFilter.to) {
-    // Format date as YYYY-MM-DD in local timezone, not UTC
+    // Format date as YYYY-MM-DD using UTC methods to avoid timezone shifts
+    // Since dates come from URL as ISO strings (UTC), we use UTC methods for consistency
     const toDate = new Date(dateFilter.to)
-    const toDateStr = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}-${String(toDate.getDate()).padStart(2, '0')}`
+    const toDateStr = `${toDate.getUTCFullYear()}-${String(toDate.getUTCMonth() + 1).padStart(2, '0')}-${String(toDate.getUTCDate()).padStart(2, '0')}`
     additionalCostsQuery = additionalCostsQuery.lte('date', toDateStr)
   }
 

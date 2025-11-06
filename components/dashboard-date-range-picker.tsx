@@ -43,6 +43,42 @@ const presets: { label: string; value: Preset }[] = [
   { label: 'All Time', value: 'allTime' },
 ]
 
+const STORAGE_KEY = 'dashboard-date-range'
+
+function saveToLocalStorage(preset: Preset, dateRange: DateRange | undefined) {
+  if (typeof window === 'undefined') return
+  
+  try {
+    const data = {
+      preset,
+      from: dateRange?.from?.toISOString() || null,
+      to: dateRange?.to?.toISOString() || null,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.error('Failed to save date range to localStorage:', error)
+  }
+}
+
+function loadFromLocalStorage(): { preset: Preset; from: string | null; to: string | null } | null {
+  if (typeof window === 'undefined') return null
+  
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return null
+    
+    const data = JSON.parse(stored)
+    return {
+      preset: data.preset || 'allTime',
+      from: data.from || null,
+      to: data.to || null,
+    }
+  } catch (error) {
+    console.error('Failed to load date range from localStorage:', error)
+    return null
+  }
+}
+
 function getPresetDates(preset: Preset): { from: Date; to: Date } | null {
   const today = new Date()
   
@@ -92,7 +128,7 @@ export function DashboardDateRangePicker() {
   const [preset, setPreset] = useState<Preset>('allTime')
   const [open, setOpen] = useState(false)
 
-  // Initialize from URL params
+  // Initialize from URL params or localStorage
   useEffect(() => {
     const fromParam = searchParams.get('from')
     const toParam = searchParams.get('to')
@@ -111,6 +147,25 @@ export function DashboardDateRangePicker() {
       const to = new Date(toParam)
       setDate({ from, to })
       setPreset('allTime') // Custom range
+    } else {
+      // No URL params, try loading from localStorage
+      const stored = loadFromLocalStorage()
+      if (stored) {
+        if (stored.preset && presets.some(p => p.value === stored.preset)) {
+          setPreset(stored.preset)
+          const presetDates = getPresetDates(stored.preset)
+          if (presetDates) {
+            setDate({ from: presetDates.from, to: presetDates.to })
+          } else {
+            setDate({ from: undefined, to: undefined })
+          }
+        } else if (stored.from && stored.to) {
+          const from = new Date(stored.from)
+          const to = new Date(stored.to)
+          setDate({ from, to })
+          setPreset('allTime')
+        }
+      }
     }
   }, [searchParams])
 
@@ -125,10 +180,12 @@ export function DashboardDateRangePicker() {
       params.set('from', presetDates.from.toISOString())
       params.set('to', presetDates.to.toISOString())
       setDate({ from: presetDates.from, to: presetDates.to })
+      saveToLocalStorage(newPreset, { from: presetDates.from, to: presetDates.to })
     } else {
       params.delete('from')
       params.delete('to')
       setDate({ from: undefined, to: undefined })
+      saveToLocalStorage(newPreset, undefined)
     }
     
     router.push(`?${params.toString()}`)
@@ -144,12 +201,15 @@ export function DashboardDateRangePicker() {
       params.set('from', range.from.toISOString())
       params.set('to', range.to.toISOString())
       setPreset('allTime') // Mark as custom
+      saveToLocalStorage('allTime', range)
     } else if (range?.from) {
       params.set('from', range.from.toISOString())
       params.delete('to')
+      saveToLocalStorage('allTime', range)
     } else {
       params.delete('from')
       params.delete('to')
+      saveToLocalStorage('allTime', undefined)
     }
     
     router.push(`?${params.toString()}`)
