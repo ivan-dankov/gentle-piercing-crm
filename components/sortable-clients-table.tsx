@@ -7,14 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SortableTableHeader, SortDirection } from '@/components/sortable-table-header'
 import { DeleteClientButton } from '@/components/delete-client-button'
-
-interface Client {
-  id: string
-  name: string
-  phone: string | null
-  source: string | null
-  created_at: string
-}
+import type { Client } from '@/lib/types'
 
 interface SortableClientsTableProps {
   clients: Client[]
