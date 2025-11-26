@@ -53,6 +53,7 @@ export function calendarDateToUTCEndOfDay(dateStr: string): Date {
 /**
  * Convert a Date object to an ISO string that preserves the calendar date
  * This is used when sending dates to the server to ensure the calendar date is preserved
+ * Converts to start of day (midnight UTC)
  */
 export function dateToCalendarISOString(date: Date): string {
   // Extract local date components to get the calendar date
@@ -61,6 +62,21 @@ export function dateToCalendarISOString(date: Date): string {
   const day = date.getDate()
   // Create a new date at midnight UTC for this calendar date
   const utcDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0))
+  return utcDate.toISOString()
+}
+
+/**
+ * Convert a Date object to an ISO string at end of day UTC for the calendar date
+ * This is used for "to" dates in date ranges to ensure the full day is included
+ * Converts to end of day (23:59:59.999 UTC)
+ */
+export function dateToCalendarISOStringEnd(date: Date): string {
+  // Extract local date components to get the calendar date
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const day = date.getDate()
+  // Create a new date at end of day UTC for this calendar date
+  const utcDate = new Date(Date.UTC(year, month, day, 23, 59, 59, 999))
   return utcDate.toISOString()
 }
 

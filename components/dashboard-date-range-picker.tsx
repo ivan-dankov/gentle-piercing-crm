@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { dateToCalendarISOString } from '@/lib/date-utils'
+import { dateToCalendarISOString, dateToCalendarISOStringEnd } from '@/lib/date-utils'
 import {
   startOfDay,
   endOfDay,
@@ -179,11 +179,11 @@ function detectPresetFromRange(range: DateRange | undefined): Preset {
   for (const preset of presetsToCheck) {
     const presetDates = getPresetDates(preset)
     if (presetDates) {
-      // Compare dates by their ISO string (ignoring time)
+      // Compare dates by their ISO string (using start for "from" and end for "to")
       const rangeFromStr = dateToCalendarISOString(range.from)
-      const rangeToStr = dateToCalendarISOString(range.to)
+      const rangeToStr = dateToCalendarISOStringEnd(range.to)
       const presetFromStr = dateToCalendarISOString(presetDates.from)
-      const presetToStr = dateToCalendarISOString(presetDates.to)
+      const presetToStr = dateToCalendarISOStringEnd(presetDates.to)
       
       if (rangeFromStr === presetFromStr && rangeToStr === presetToStr) {
         return preset
@@ -265,7 +265,7 @@ export function DashboardDateRangePicker() {
     
     if (presetDates) {
       params.set('from', dateToCalendarISOString(presetDates.from))
-      params.set('to', dateToCalendarISOString(presetDates.to))
+      params.set('to', dateToCalendarISOStringEnd(presetDates.to))
       setDate({ from: presetDates.from, to: presetDates.to })
       saveToLocalStorage(newPreset, { from: presetDates.from, to: presetDates.to })
     } else {
@@ -288,7 +288,7 @@ export function DashboardDateRangePicker() {
     
     if (range?.from && range?.to) {
       params.set('from', dateToCalendarISOString(range.from))
-      params.set('to', dateToCalendarISOString(range.to))
+      params.set('to', dateToCalendarISOStringEnd(range.to))
       // Only set preset param if it's not custom (custom ranges don't need preset param)
       if (detectedPreset !== 'custom') {
         params.set('preset', detectedPreset)

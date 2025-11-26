@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt } from 'lucide-react'
 import { DashboardDateRangePicker } from '@/components/dashboard-date-range-picker'
-import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString } from '@/lib/date-utils'
+import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString, dateToCalendarISOStringEnd } from '@/lib/date-utils'
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, startOfWeek, endOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
 import {
   Table,
@@ -102,8 +102,9 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           
           if (presetDates) {
             // Convert to calendar ISO strings for consistency
+            // Use start of day for "from" and end of day for "to" to ensure full day coverage
             fromParam = dateToCalendarISOString(presetDates.from)
-            toParam = dateToCalendarISOString(presetDates.to)
+            toParam = dateToCalendarISOStringEnd(presetDates.to)
           }
         } else if (cookieData.from && cookieData.to) {
           // Custom date range - use stored dates

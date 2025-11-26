@@ -139,7 +139,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   const [clients, setClients] = useState<Client[]>([])
   const [earrings, setEarrings] = useState<Earring[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [timeClientExpanded, setTimeClientExpanded] = useState(true)
+  const [timeClientExpanded, setTimeClientExpanded] = useState(false)
   const [serviceExpanded, setServiceExpanded] = useState(true)
   const [earringsExpanded, setEarringsExpanded] = useState(true)
   const [paymentExpanded, setPaymentExpanded] = useState(true)
