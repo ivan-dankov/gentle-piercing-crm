@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt } from 'lucide-react'
 import { DashboardDateRangePicker } from '@/components/dashboard-date-range-picker'
-import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString, dateToCalendarISOStringEnd } from '@/lib/date-utils'
+import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString, dateToCalendarISOStringEnd, getTodayInTimezone, getMonthBoundsInTimezone } from '@/lib/date-utils'
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, startOfWeek, endOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
 import {
   Table,
@@ -64,39 +64,45 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         } else if (cookieData.preset && ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear'].includes(cookieData.preset)) {
           // For presets, regenerate dates on server side (dates in cookie might be stale)
           // This ensures "today" always means today, not the day it was last selected
-          const today = new Date()
+          // Get "today" in the user's timezone to ensure correct month calculations
+          const todayStr = getTodayInTimezone(timezone)
+          const [year, month, day] = todayStr.split('-').map(Number)
+          // Create a date at noon in the user's timezone to avoid DST issues
+          const todayInTz = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
           
           let presetDates: { from: Date; to: Date } | null = null
           switch (cookieData.preset) {
             case 'today':
-              presetDates = { from: startOfDay(today), to: endOfDay(today) }
+              presetDates = { from: startOfDay(todayInTz), to: endOfDay(todayInTz) }
               break
             case 'yesterday':
-              const yesterday = subDays(today, 1)
+              const yesterday = subDays(todayInTz, 1)
               presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
               break
             case 'thisWeek':
-              presetDates = { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) }
+              presetDates = { from: startOfWeek(todayInTz, { weekStartsOn: 1 }), to: endOfWeek(todayInTz, { weekStartsOn: 1 }) }
               break
             case 'lastWeek':
-              const lastWeek = subWeeks(today, 1)
+              const lastWeek = subWeeks(todayInTz, 1)
               presetDates = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) }
               break
             case 'last7days':
-              presetDates = { from: startOfDay(subDays(today, 6)), to: endOfDay(today) }
+              presetDates = { from: startOfDay(subDays(todayInTz, 6)), to: endOfDay(todayInTz) }
               break
             case 'last30days':
-              presetDates = { from: startOfDay(subDays(today, 29)), to: endOfDay(today) }
+              presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
               break
             case 'thisMonth':
-              presetDates = { from: startOfMonth(today), to: endOfMonth(today) }
+              presetDates = getMonthBoundsInTimezone(year, month, timezone)
               break
             case 'lastMonth':
-              const lastMonth = subMonths(today, 1)
-              presetDates = { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) }
+              // Calculate last month in the user's timezone
+              const lastMonthNum = month === 1 ? 12 : month - 1
+              const lastMonthYear = month === 1 ? year - 1 : year
+              presetDates = getMonthBoundsInTimezone(lastMonthYear, lastMonthNum, timezone)
               break
             case 'thisYear':
-              presetDates = { from: startOfYear(today), to: endOfDay(today) }
+              presetDates = { from: startOfYear(todayInTz), to: endOfDay(todayInTz) }
               break
           }
           

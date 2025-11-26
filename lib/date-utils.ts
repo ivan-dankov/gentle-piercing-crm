@@ -6,6 +6,7 @@
  * rather than timezone-specific timestamps.
  */
 
+
 /**
  * Extract the calendar date (YYYY-MM-DD) from an ISO string or Date object
  * For ISO strings, extracts the UTC date part (YYYY-MM-DD)
@@ -257,5 +258,47 @@ export function createAdditionalCostDateFilter(
     fromDateStr,
     toDateStr,
   }
+}
+
+/**
+ * Get the calendar date (YYYY-MM-DD) for today in a specific timezone
+ */
+export function getTodayInTimezone(timezone: string): string {
+  const now = new Date()
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  return formatter.format(now)
+}
+
+/**
+ * Create a Date object representing a calendar date in a specific timezone
+ * Uses noon UTC to avoid DST edge cases
+ */
+export function calendarDateInTimezone(year: number, month: number, day: number, timezone: string): Date {
+  // Create a date at noon UTC for this calendar date
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+}
+
+/**
+ * Get start and end of month as Date objects for a given calendar date in a timezone
+ * This ensures month boundaries are calculated correctly regardless of server timezone
+ */
+export function getMonthBoundsInTimezone(year: number, month: number, timezone: string): { from: Date; to: Date } {
+  // Calculate days in month (using UTC to avoid timezone issues)
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  
+  // Get the first day of the month - use calendarDateToUTCRange to get proper timezone boundaries
+  const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`
+  const fromRange = calendarDateToUTCRange(firstDayStr, timezone)
+  
+  // Get the last day of the month
+  const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
+  const toRange = calendarDateToUTCRange(lastDayStr, timezone)
+  
+  return { from: fromRange.from, to: toRange.to }
 }
 
