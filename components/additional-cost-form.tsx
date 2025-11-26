@@ -90,7 +90,7 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
         // Get unique categories, combine with defaults, and sort
         const uniqueCategories = Array.from(new Set([
           ...defaultCategories,
-          ...data.map(c => c.type).filter(Boolean)
+          ...(data as Array<{ type: string }>).map(c => c.type).filter(Boolean)
         ])).sort()
         setExistingCategories(uniqueCategories)
       }
