@@ -8,14 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SortableTableHeader, SortDirection } from '@/components/sortable-table-header'
 import { AdditionalCostForm } from '@/components/additional-cost-form'
 import { DeleteAdditionalCostButton } from '@/components/delete-additional-cost-button'
+import { parseDateString } from '@/lib/date-utils'
 import type { AdditionalCost } from '@/lib/types'
 
-const categoryLabels: Record<string, string> = {
-  rent: 'Rent',
-  ads: 'Ads',
-  print: 'Print',
-  consumables: 'Consumables',
-  other: 'Other',
+// Helper function to format category name (capitalize first letter)
+const formatCategoryName = (category: string): string => {
+  if (!category) return category
+  return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
 }
 
 interface SortableAdditionalCostsTableProps {
@@ -45,10 +44,10 @@ export function SortableAdditionalCostsTable({ costs }: SortableAdditionalCostsT
       if (aValue === null || aValue === undefined) return 1
       if (bValue === null || bValue === undefined) return -1
 
-      // Handle dates
+      // Handle dates (DATE fields from database)
       if (sortKey === 'date') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
+        aValue = parseDateString(aValue).getTime()
+        bValue = parseDateString(bValue).getTime()
       }
 
       // Handle numbers
@@ -79,7 +78,7 @@ export function SortableAdditionalCostsTable({ costs }: SortableAdditionalCostsT
             <CardContent className="pt-4">
               <div className="space-y-3">
                 <div>
-                  <h3 className="font-semibold text-lg">{categoryLabels[cost.type] || cost.type}</h3>
+                  <h3 className="font-semibold text-lg">{formatCategoryName(cost.type)}</h3>
                   {cost.description && (
                     <p className="text-sm text-muted-foreground">{cost.description}</p>
                   )}
@@ -91,7 +90,7 @@ export function SortableAdditionalCostsTable({ costs }: SortableAdditionalCostsT
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date:</span>
-                    <span>{new Date(cost.date).toLocaleDateString()}</span>
+                    <span>{parseDateString(cost.date).toLocaleDateString()}</span>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2">
@@ -142,11 +141,11 @@ export function SortableAdditionalCostsTable({ costs }: SortableAdditionalCostsT
             {sortedCosts.map((cost) => (
               <TableRow key={cost.id}>
                 <TableCell className="font-medium">
-                  <Badge variant="outline">{categoryLabels[cost.type] || cost.type}</Badge>
+                  <Badge variant="outline">{formatCategoryName(cost.type)}</Badge>
                 </TableCell>
                 <TableCell className="font-semibold">${cost.amount.toFixed(2)}</TableCell>
                 <TableCell>
-                  {new Date(cost.date).toLocaleDateString()}
+                  {parseDateString(cost.date).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {cost.description || '-'}

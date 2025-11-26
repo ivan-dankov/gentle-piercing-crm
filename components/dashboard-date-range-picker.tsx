@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { dateToCalendarISOString, dateToCalendarISOStringEnd } from '@/lib/date-utils'
+import { dateToCalendarISOString, dateToCalendarISOStringEnd, parseCalendarDateFromISO } from '@/lib/date-utils'
 import {
   startOfDay,
   endOfDay,
@@ -60,8 +60,9 @@ function saveToLocalStorage(preset: Preset, dateRange: DateRange | undefined) {
   try {
     const data = {
       preset,
-      from: dateRange?.from?.toISOString() || null,
-      to: dateRange?.to?.toISOString() || null,
+      // Use the same format as URL params for consistency
+      from: dateRange?.from ? dateToCalendarISOString(dateRange.from) : null,
+      to: dateRange?.to ? dateToCalendarISOStringEnd(dateRange.to) : null,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     
@@ -147,7 +148,7 @@ function getPresetDates(preset: Preset): { from: Date; to: Date } | null {
     case 'thisMonth':
       return {
         from: startOfMonth(today),
-        to: endOfMonth(today),
+        to: endOfDay(today), // End at today, not end of month
       }
     case 'lastMonth':
       const lastMonth = subMonths(today, 1)
@@ -218,8 +219,9 @@ export function DashboardDateRangePicker() {
         setDate({ from: undefined, to: undefined })
       }
     } else if (fromParam && toParam) {
-      const from = new Date(fromParam)
-      const to = new Date(toParam)
+      // Parse dates preserving the calendar date (avoid timezone shift)
+      const from = parseCalendarDateFromISO(fromParam)
+      const to = parseCalendarDateFromISO(toParam)
       const dateRange = { from, to }
       setDate(dateRange)
       const detectedPreset = detectPresetFromRange(dateRange)
@@ -233,8 +235,8 @@ export function DashboardDateRangePicker() {
           setPreset(stored.preset)
           // For 'custom' preset, use stored dates instead of generating preset dates
           if (stored.preset === 'custom' && stored.from && stored.to) {
-            const from = new Date(stored.from)
-            const to = new Date(stored.to)
+            const from = parseCalendarDateFromISO(stored.from)
+            const to = parseCalendarDateFromISO(stored.to)
             setDate({ from, to })
           } else {
             const presetDates = getPresetDates(stored.preset)
@@ -245,8 +247,8 @@ export function DashboardDateRangePicker() {
             }
           }
         } else if (stored.from && stored.to) {
-          const from = new Date(stored.from)
-          const to = new Date(stored.to)
+          const from = parseCalendarDateFromISO(stored.from)
+          const to = parseCalendarDateFromISO(stored.to)
           const dateRange = { from, to }
           setDate(dateRange)
           const detectedPreset = detectPresetFromRange(dateRange)

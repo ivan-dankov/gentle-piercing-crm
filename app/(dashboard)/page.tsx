@@ -93,7 +93,9 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
               presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
               break
             case 'thisMonth':
-              presetDates = getMonthBoundsInTimezone(year, month, timezone)
+              // This month: from 1st of current month to today
+              const thisMonthFirst = getMonthBoundsInTimezone(year, month, timezone).from
+              presetDates = { from: thisMonthFirst, to: endOfDay(todayInTz) }
               break
             case 'lastMonth':
               // Calculate last month in the user's timezone
@@ -200,17 +202,14 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const additionalCostsResult = await additionalCostsQuery
   const additionalCostsData = (additionalCostsResult.data as any[]) || []
 
-  // Calculate additional costs by category
-  const additionalCostsByCategory: Record<string, number> = {
-    rent: 0,
-    ads: 0,
-    print: 0,
-    consumables: 0,
-    other: 0,
-  }
+  // Calculate additional costs by category (dynamically from data)
+  const additionalCostsByCategory: Record<string, number> = {}
 
   additionalCostsData.forEach((cost: any) => {
-    if (cost.type && additionalCostsByCategory.hasOwnProperty(cost.type)) {
+    if (cost.type) {
+      if (!additionalCostsByCategory[cost.type]) {
+        additionalCostsByCategory[cost.type] = 0
+      }
       additionalCostsByCategory[cost.type] += cost.amount || 0
     }
   })
@@ -431,36 +430,14 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                     <span className="text-sm font-bold">${totalAdditionalCosts.toFixed(2)}</span>
                   </div>
                   <div className="pl-6 space-y-1">
-                    {additionalCostsByCategory.rent > 0 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Rent</span>
-                        <span className="font-medium">${additionalCostsByCategory.rent.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {additionalCostsByCategory.ads > 0 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Ads</span>
-                        <span className="font-medium">${additionalCostsByCategory.ads.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {additionalCostsByCategory.print > 0 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Print</span>
-                        <span className="font-medium">${additionalCostsByCategory.print.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {additionalCostsByCategory.consumables > 0 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Consumables</span>
-                        <span className="font-medium">${additionalCostsByCategory.consumables.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {additionalCostsByCategory.other > 0 && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Other</span>
-                        <span className="font-medium">${additionalCostsByCategory.other.toFixed(2)}</span>
-                      </div>
-                    )}
+                    {Object.entries(additionalCostsByCategory)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([category, amount]) => (
+                        <div key={category} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground capitalize">{category}</span>
+                          <span className="font-medium">${amount.toFixed(2)}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </>

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { format } from 'date-fns'
-import { formatDateForDatabase } from '@/lib/date-utils'
+import { formatDateForDatabase, parseDateString } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,20 +28,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader } from '@/components/ui/loader'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CalendarIcon } from 'lucide-react'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
 const additionalCostSchema = z.object({
-  type: z.enum(['rent', 'ads', 'print', 'consumables', 'other']),
+  type: z.string().min(1, 'Category is required'),
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date(),
   description: z.string().optional(),
@@ -51,7 +46,7 @@ type AdditionalCostFormValues = z.infer<typeof additionalCostSchema>
 
 interface AdditionalCost {
   id: string
-  type: 'rent' | 'ads' | 'print' | 'consumables' | 'other'
+  type: string
   amount: number
   date: string
   description: string | null
@@ -63,18 +58,54 @@ interface AdditionalCostFormProps {
   onSuccess?: () => void | Promise<void>
 }
 
+// Default categories for suggestions
+const defaultCategories = ['rent', 'ads', 'print', 'consumables', 'other']
+
 export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCostFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [existingCategories, setExistingCategories] = useState<string[]>([])
   const router = useRouter()
   const supabase = createClient()
+
+  // Load existing categories from database
+  useEffect(() => {
+    if (open) {
+      loadCategories()
+    }
+  }, [open])
+
+  const loadCategories = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('additional_costs')
+        .select('type')
+        .eq('user_id', user.id)
+      
+      if (data) {
+        // Get unique categories, combine with defaults, and sort
+        const uniqueCategories = Array.from(new Set([
+          ...defaultCategories,
+          ...data.map(c => c.type).filter(Boolean)
+        ])).sort()
+        setExistingCategories(uniqueCategories)
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+      setExistingCategories(defaultCategories)
+    }
+  }
 
   const form = useForm<AdditionalCostFormValues>({
     resolver: zodResolver(additionalCostSchema),
     defaultValues: {
-      type: cost?.type || 'rent',
+      type: cost?.type || '',
       amount: cost?.amount || 0,
-      date: cost?.date ? new Date(cost.date) : new Date(),
+      date: cost?.date ? parseDateString(cost.date) : new Date(),
       description: cost?.description || '',
     },
   })
@@ -116,7 +147,7 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
         if (error) throw error
         setOpen(false)
         form.reset({
-          type: 'rent',
+          type: '',
           amount: 0,
           date: new Date(),
           description: '',
@@ -148,22 +179,78 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
               control={form.control}
               name="type"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="rent">Rent</SelectItem>
-                      <SelectItem value="ads">Ads</SelectItem>
-                      <SelectItem value="print">Print</SelectItem>
-                      <SelectItem value="consumables">Consumables</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          type="button"
+                        >
+                          {field.value || "Select or type a category..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Search or type new category..." 
+                          value={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value)
+                          }}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {field.value ? (
+                              <div className="py-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="w-full justify-start"
+                                  onClick={() => {
+                                    field.onChange(field.value)
+                                    setCategoryOpen(false)
+                                  }}
+                                >
+                                  Create "{field.value}"
+                                </Button>
+                              </div>
+                            ) : (
+                              "No category found."
+                            )}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {existingCategories.map((category) => (
+                              <CommandItem
+                                key={category}
+                                value={category}
+                                onSelect={() => {
+                                  field.onChange(category)
+                                  setCategoryOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    field.value === category ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {category}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

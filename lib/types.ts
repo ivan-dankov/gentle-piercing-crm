@@ -1,6 +1,5 @@
 export type ClientSource = 'booksy' | 'instagram' | 'referral' | 'walk-in';
 export type PaymentMethod = 'cash' | 'blik';
-export type AdditionalCostCategory = 'rent' | 'ads' | 'print' | 'consumables' | 'other';
 
 export interface Client {
   id: string;
@@ -14,7 +13,7 @@ export interface Client {
 export interface AdditionalCost {
   id: string;
   user_id: string;
-  type: AdditionalCostCategory;
+  type: string; // Now supports custom categories
   amount: number;
   date: string;
   description: string | null;

@@ -4,6 +4,32 @@
  * This module provides consistent date handling across the application.
  * All functions are designed to work with calendar dates (what users see)
  * rather than timezone-specific timestamps.
+ * 
+ * HOLISTIC DATE HANDLING APPROACH:
+ * ================================
+ * 
+ * There are TWO types of dates in this application:
+ * 
+ * 1. CALENDAR DATES (DATE fields in DB, e.g., additional_costs.date)
+ *    - Format: "YYYY-MM-DD" (no time component)
+ *    - Represent a specific day regardless of timezone
+ *    - SAVING: Use formatDateForDatabase(date) → "YYYY-MM-DD"
+ *    - PARSING: Use parseDateString(dateStr) → Date at noon local time
+ *    - DISPLAY: Use toLocaleDateString() on the parsed Date
+ * 
+ * 2. TIMESTAMPS (TIMESTAMP fields in DB, e.g., bookings.start_time)
+ *    - Format: "YYYY-MM-DDTHH:mm:ss.sssZ" (ISO 8601 UTC)
+ *    - Represent a specific moment in time
+ *    - SAVING: Use date.toISOString() → UTC timestamp
+ *    - PARSING: Use new Date(isoString) → local Date
+ *    - DISPLAY: Use toLocaleString() or date-fns format()
+ * 
+ * 3. DATE RANGE FILTERING (dashboard date picker)
+ *    - URLs/Storage: Use dateToCalendarISOString (from) and dateToCalendarISOStringEnd (to)
+ *    - Reading back: Use parseCalendarDateFromISO → Date at noon local time
+ *    - DB Queries: Use createBookingDateFilter with user's timezone
+ * 
+ * KEY RULE: Always use noon (12:00) for calendar dates to avoid timezone shifts
  */
 
 
@@ -93,6 +119,32 @@ export function formatDateForDatabase(date: Date): string {
 }
 
 /**
+ * Parse a calendar date from an ISO string and return a local Date at noon
+ * This avoids timezone issues when displaying dates in the UI
+ * The noon time ensures the date won't shift due to timezone conversions
+ */
+export function parseCalendarDateFromISO(isoString: string): Date {
+  const dateStr = isoString.split('T')[0]
+  const [year, month, day] = dateStr.split('-').map(Number)
+  // Use noon local time to avoid timezone boundary issues
+  return new Date(year, month - 1, day, 12, 0, 0, 0)
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) from database DATE field and return a local Date at noon
+ * This is the standard way to parse DATE fields for display purposes
+ * The noon time ensures the date won't shift due to timezone conversions
+ * 
+ * IMPORTANT: Always use this instead of new Date(dateString) for DATE fields!
+ * new Date("2025-11-26") parses as UTC midnight, which can shift dates in some timezones
+ */
+export function parseDateString(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  // Use noon local time to avoid timezone boundary issues
+  return new Date(year, month - 1, day, 12, 0, 0, 0)
+}
+
+/**
  * Parse date range from URL search params
  * Returns date objects and date strings for both bookings (timestamp) and additional costs (date)
  */
@@ -134,71 +186,33 @@ export function parseDateRangeFromParams(
  * Convert a calendar date (YYYY-MM-DD) to UTC date range for a given timezone
  * This ensures bookings are filtered correctly based on the user's timezone
  * 
- * Uses a simple approach: creates dates for start/end of day and uses
- * the timezone offset to convert to UTC boundaries
+ * Uses a simpler approach: calculates timezone offset and adjusts UTC times accordingly
  */
 export function calendarDateToUTCRange(dateStr: string, timezone: string): { from: Date; to: Date } {
   // Parse the date string
   const [year, month, day] = dateStr.split('-').map(Number)
   
-  // Create a date at noon UTC on this day (to avoid DST edge cases at midnight)
-  const noonUTC = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+  // Get the timezone offset in minutes for this date
+  // We create a date at noon to avoid DST edge cases
+  const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
   
-  // Format this date in the target timezone to see what time it is there
-  const formatter = new Intl.DateTimeFormat('en', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  // Get the offset by comparing UTC time with local time in the timezone
+  const utcString = testDate.toLocaleString('en-US', { timeZone: 'UTC' })
+  const tzString = testDate.toLocaleString('en-US', { timeZone: timezone })
+  const utcDate = new Date(utcString)
+  const tzDate = new Date(tzString)
   
-  const utcFormatter = new Intl.DateTimeFormat('en', {
-    timeZone: 'UTC',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  // Offset in milliseconds (positive means timezone is ahead of UTC)
+  const offsetMs = tzDate.getTime() - utcDate.getTime()
   
-  const tzParts = formatter.formatToParts(noonUTC)
-  const utcParts = utcFormatter.formatToParts(noonUTC)
+  // Start of day in the target timezone = midnight local time
+  // To get this in UTC, we create midnight UTC and subtract the offset
+  const startLocal = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+  const startUTC = new Date(startLocal.getTime() - offsetMs)
   
-  const tzHour = parseInt(tzParts.find(p => p.type === 'hour')?.value || '12')
-  const utcHour = parseInt(utcParts.find(p => p.type === 'hour')?.value || '12')
-  
-  // Calculate offset in hours (how many hours ahead/behind UTC the timezone is)
-  const offsetHours = tzHour - utcHour
-  
-  // Create start of day: 00:00:00 in timezone
-  // If timezone is ahead of UTC (e.g., +2), then 00:00 local = 22:00 previous day UTC
-  // So we subtract the offset from midnight UTC
-  let startHour = -offsetHours
-  let startDay = day
-  if (startHour < 0) {
-    startHour += 24
-    startDay -= 1
-    // Handle month/year rollover if needed
-    if (startDay < 1) {
-      const prevMonth = month - 1
-      if (prevMonth < 1) {
-        return calendarDateToUTCRange(`${year - 1}-12-31`, timezone) // Fallback for edge case
-      }
-      // Get days in previous month (simplified - assumes 31 days)
-      startDay = 31
-    }
-  }
-  const startUTC = new Date(Date.UTC(year, month - 1, startDay, startHour, 0, 0, 0))
-  
-  // Create end of day: 23:59:59.999 in timezone
-  let endHour = 23 - offsetHours
-  let endDay = day
-  if (endHour >= 24) {
-    endHour -= 24
-    endDay += 1
-  } else if (endHour < 0) {
-    endHour += 24
-    endDay -= 1
-  }
-  const endUTC = new Date(Date.UTC(year, month - 1, endDay, endHour, 59, 59, 999))
+  // End of day in the target timezone = 23:59:59.999 local time
+  const endLocal = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999))
+  const endUTC = new Date(endLocal.getTime() - offsetMs)
   
   return {
     from: startUTC,
