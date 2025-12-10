@@ -86,15 +86,59 @@ const bookingSchema = z.object({
   client_notes: z.string().optional(),
   earring_items: z.array(z.object({
     id: z.string().optional(),
-    earring_id: z.string().uuid(),
+    earring_id: z.union([z.string().uuid(), z.literal('')]),
     qty: z.number().int().min(1),
     price: z.number().min(0).nullable().optional(),
-  })).min(1),
+  })).superRefine((items, ctx) => {
+    const validItems = items.filter(item => item.earring_id && item.earring_id.trim() !== '')
+    if (validItems.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one earring is required',
+        path: [],
+      })
+    }
+    // Validate each non-empty item has a valid UUID
+    items.forEach((item, index) => {
+      if (item.earring_id && item.earring_id.trim() !== '') {
+        const uuidResult = z.string().uuid().safeParse(item.earring_id)
+        if (!uuidResult.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid earring ID',
+            path: [index, 'earring_id'],
+          })
+        }
+      }
+    })
+  }),
   service_items: z.array(z.object({
     id: z.string().optional(),
-    service_id: z.string().uuid(),
+    service_id: z.union([z.string().uuid(), z.literal('')]),
     price: z.number().min(0).nullable().optional(),
-  })).min(1),
+  })).superRefine((items, ctx) => {
+    const validItems = items.filter(item => item.service_id && item.service_id.trim() !== '')
+    if (validItems.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one service is required',
+        path: [],
+      })
+    }
+    // Validate each non-empty item has a valid UUID
+    items.forEach((item, index) => {
+      if (item.service_id && item.service_id.trim() !== '') {
+        const uuidResult = z.string().uuid().safeParse(item.service_id)
+        if (!uuidResult.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid service ID',
+            path: [index, 'service_id'],
+          })
+        }
+      }
+    })
+  }),
   is_model: z.boolean(),
   earring_cost: z.number().min(0).nullable().optional(),
   earring_revenue: z.number().min(0).nullable().optional(),
@@ -190,7 +234,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
           qty: booking.earring_qty || 1,
           price: null,
         }]
-      : [{ id: Math.random().toString(), earring_id: '', qty: 1, price: null }]
+      : []
 
   // Initialize service items from junction table or legacy field
   const initialServiceItems: ServiceItem[] = booking?.booking_services && booking.booking_services.length > 0
@@ -205,7 +249,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
           service_id: booking.service_id,
           price: booking.service_price ?? null,
         }]
-      : [{ id: Math.random().toString(), service_id: '', price: null }]
+      : []
 
   // Initialize broken earring items from junction table or empty array
   const initialBrokenEarringItems: BrokenEarringItem[] = booking?.booking_broken_earrings && booking.booking_broken_earrings.length > 0
@@ -638,6 +682,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
 
 
   const onSubmit = async (values: BookingFormValues) => {
+    console.log('onSubmit called with values:', values)
     setLoading(true)
     try {
       // Get current user
@@ -734,10 +779,10 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
         bookingId = newBooking.id
       }
 
-      // Insert earring items
-      if (values.earring_items && values.earring_items.length > 0) {
-        const earringItems = values.earring_items
-          .filter(item => item.earring_id)
+      // Insert earring items (filter out any with empty IDs)
+      const validEarringItems = values.earring_items.filter(item => item.earring_id && item.earring_id.trim() !== '')
+      if (validEarringItems.length > 0) {
+        const earringItems = validEarringItems
           .map(item => ({
             booking_id: bookingId,
             earring_id: item.earring_id,
@@ -755,10 +800,10 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
         }
       }
 
-      // Insert service items
-      if (values.service_items && values.service_items.length > 0) {
-        const serviceItems = values.service_items
-          .filter(item => item.service_id)
+      // Insert service items (filter out any with empty IDs)
+      const validServiceItems = values.service_items.filter(item => item.service_id && item.service_id.trim() !== '')
+      if (validServiceItems.length > 0) {
+        const serviceItems = validServiceItems
           .map(item => ({
             booking_id: bookingId,
             service_id: item.service_id,
@@ -865,17 +910,36 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
         <Form {...form}>
           <form 
             onSubmit={(e) => {
+              e.preventDefault()
               // Prevent form submission when clicking on Google Places suggestions
               const target = e.target as HTMLElement
               if (target.closest('.pac-container')) {
-                e.preventDefault()
                 e.stopPropagation()
                 return false
               }
               if (currentStep === 5) {
-                form.handleSubmit(onSubmit)(e)
+                console.log('Form submitted on step 5, calling handleSubmit')
+                const handleSubmitResult = form.handleSubmit(
+                  (data) => {
+                    console.log('Validation passed, calling onSubmit')
+                    onSubmit(data)
+                  },
+                  (errors) => {
+                    console.error('Form validation errors:', errors)
+                    // Find first error field and scroll to it
+                    const firstErrorField = Object.keys(errors)[0]
+                    if (firstErrorField) {
+                      const errorElement = document.querySelector(`[name="${firstErrorField}"]`) || 
+                                          document.querySelector(`[id="${firstErrorField}"]`)
+                      if (errorElement) {
+                        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        ;(errorElement as HTMLElement).focus()
+                      }
+                    }
+                  }
+                )
+                handleSubmitResult(e)
               } else {
-                e.preventDefault()
                 goToNextStep()
               }
             }}
@@ -1722,9 +1786,18 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
               </Button>
             ) : (
               <Button 
-                type="button"
-                onClick={form.handleSubmit(onSubmit)}
+                type="submit"
                 disabled={loading || dataLoading}
+                onClick={(e) => {
+                  console.log('Create/Update button clicked')
+                  console.log('Form state:', {
+                    currentStep,
+                    serviceItems: form.getValues('service_items'),
+                    earringItems: form.getValues('earring_items'),
+                    errors: form.formState.errors,
+                    isValid: form.formState.isValid
+                  })
+                }}
                 className="w-full sm:w-auto"
               >
                 {loading ? (
