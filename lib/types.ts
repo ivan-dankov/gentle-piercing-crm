@@ -1,5 +1,5 @@
 export type ClientSource = 'booksy' | 'instagram' | 'referral' | 'walk-in';
-export type PaymentMethod = 'cash' | 'blik';
+export type PaymentMethod = 'cash' | 'blik' | 'card';
 
 export interface Client {
   id: string;

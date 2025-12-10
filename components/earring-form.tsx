@@ -52,9 +52,10 @@ type EarringFormValues = z.infer<typeof earringSchema>
 interface EarringFormProps {
   earring?: Earring
   children: React.ReactNode
+  onSuccess?: () => void | Promise<void>
 }
 
-export function EarringForm({ earring, children }: EarringFormProps) {
+export function EarringForm({ earring, children, onSuccess }: EarringFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -112,6 +113,7 @@ export function EarringForm({ earring, children }: EarringFormProps) {
       setOpen(false)
       form.reset(getDefaultValues())
       router.refresh()
+      await onSuccess?.()
     } catch (error: any) {
       console.error('Error saving earring:', error)
       const errorMessage = error?.message || 'Failed to save earring'
