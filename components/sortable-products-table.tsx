@@ -187,6 +187,7 @@ export function SortableProductsTable({ products }: SortableProductsTableProps) 
       
       const { error } = await supabase
         .from('products')
+        // @ts-expect-error - Supabase types issue
         .update({ active: newActiveStatus })
         .in('id', idsArray)
       
