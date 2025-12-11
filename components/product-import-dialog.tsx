@@ -141,6 +141,7 @@ export function ProductImportDialog({ children }: ProductImportDialogProps) {
 
       const { error } = await supabase
         .from('products')
+        // @ts-expect-error - Supabase types issue
         .insert(productsToInsert)
 
       if (error) throw error
