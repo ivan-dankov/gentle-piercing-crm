@@ -227,16 +227,16 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                         </div>
                       )
                     })
-                  ) : currentBooking.earring ? (
+                  ) : currentBooking.product ? (
                     <div className="p-3 border rounded-lg bg-muted/30">
                       <div className="space-y-2">
                         <div>
-                          <p className="text-xs text-muted-foreground">Earring Name</p>
+                          <p className="text-xs text-muted-foreground">Product Name</p>
                           <p className="font-medium text-sm">{currentBooking.product?.name}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Quantity</p>
-                          <p className="font-medium text-sm">{currentBooking.earring_qty}</p>
+                          <p className="font-medium text-sm">{currentBooking.earring_qty || 0}</p>
                         </div>
                         {currentBooking.earring_cost && currentBooking.earring_cost > 0 && (
                           <div>
