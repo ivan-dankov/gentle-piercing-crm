@@ -23,7 +23,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Loader } from '@/components/ui/loader'
 import { createClient } from '@/lib/supabase/client'
+import { Database } from '@/lib/supabase/database.types'
 import { Upload } from 'lucide-react'
+
+type ProductInsert = Database['public']['Tables']['products']['Insert']
 
 interface ProductImportDialogProps {
   children: React.ReactNode
@@ -126,7 +129,7 @@ export function ProductImportDialog({ children }: ProductImportDialogProps) {
         throw new Error('You must be logged in to import products')
       }
 
-      const productsToInsert = parsedProducts.map(p => ({
+      const productsToInsert: ProductInsert[] = parsedProducts.map(p => ({
         name: p.name!,
         sku: p.sku || null,
         cost: p.cost,
