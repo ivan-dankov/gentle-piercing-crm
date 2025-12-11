@@ -24,7 +24,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Bookings', href: '/bookings', icon: Calendar },
-  { name: 'Earrings', href: '/earrings', icon: Gem },
+  { name: 'Products', href: '/products', icon: Gem },
   { name: 'Services', href: '/services', icon: Scissors },
   { name: 'Additional Costs', href: '/additional-costs', icon: Receipt },
   { name: 'Settings', href: '/settings', icon: Settings },

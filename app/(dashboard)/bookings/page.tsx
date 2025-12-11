@@ -13,14 +13,14 @@ export default async function BookingsPage() {
     .select(`
       *,
       client:clients(*),
-      earring:earrings(*),
+      product:products(*),
       service:services(*),
-      booking_earrings(
+      booking_products(
         id,
-        earring_id,
+        product_id,
         qty,
         price,
-        earring:earrings(*)
+        product:products(*)
       ),
       booking_services(
         id,
@@ -28,12 +28,12 @@ export default async function BookingsPage() {
         price,
         service:services(*)
       ),
-      booking_broken_earrings(
+      booking_broken_products(
         id,
-        earring_id,
+        product_id,
         qty,
         cost,
-        earring:earrings(*)
+        product:products(*)
       )
     `)
     .order('start_time', { ascending: true })

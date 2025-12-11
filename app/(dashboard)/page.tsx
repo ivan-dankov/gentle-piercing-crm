@@ -142,11 +142,11 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       broken_earring_loss,
       tax_amount,
       start_time,
-      booking_earrings(
+      booking_products(
         id,
         qty,
         price,
-        earring:earrings(
+        product:products(
           id,
           name,
           cost
@@ -161,11 +161,11 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           name
         )
       ),
-      booking_broken_earrings(
+      booking_broken_products(
         id,
         qty,
         cost,
-        earring:earrings(
+        product:products(
           id,
           name,
           cost
@@ -231,12 +231,12 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   let totalTax = 0
 
   bookingsData.forEach((booking: any) => {
-    // Earring costs from booking_earrings
-    if (booking.booking_earrings && Array.isArray(booking.booking_earrings)) {
-      booking.booking_earrings.forEach((be: any) => {
-        const earring = Array.isArray(be.earring) ? be.earring[0] : be.earring
-        if (earring?.cost) {
-          totalEarringCosts += (earring.cost || 0) * (be.qty || 0)
+    // Product costs from booking_products
+    if (booking.booking_products && Array.isArray(booking.booking_products)) {
+      booking.booking_products.forEach((be: any) => {
+        const product = Array.isArray(be.product) ? be.product[0] : be.product
+        if (product?.cost) {
+          totalEarringCosts += (product.cost || 0) * (be.qty || 0)
         }
       })
     }
@@ -247,10 +247,10 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     // Booksy fees
     totalBooksyFees += booking.booksy_fee || 0
 
-    // Broken earring losses from booking_broken_earrings
-    if (booking.booking_broken_earrings && Array.isArray(booking.booking_broken_earrings)) {
-      booking.booking_broken_earrings.forEach((bbe: any) => {
-        const cost = bbe.cost || (Array.isArray(bbe.earring) ? bbe.earring[0]?.cost : bbe.earring?.cost) || 0
+    // Broken product losses from booking_broken_products
+    if (booking.booking_broken_products && Array.isArray(booking.booking_broken_products)) {
+      booking.booking_broken_products.forEach((bbe: any) => {
+        const cost = bbe.cost || (Array.isArray(bbe.product) ? bbe.product[0]?.cost : bbe.product?.cost) || 0
         totalBrokenEarringLosses += cost * (bbe.qty || 0)
       })
     } else if (booking.broken_earring_loss) {
@@ -269,21 +269,21 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const avgProfitPerBooking = totalBookings > 0 ? totalProfit / totalBookings : 0
   const avgCostPerBooking = totalBookings > 0 ? totalCosts / totalBookings : 0
 
-  // Top 5 earrings by sales (quantity)
-  const earringSalesMap = new Map<string, { name: string; qty: number; revenue: number }>()
+  // Top 5 products by sales (quantity)
+  const productSalesMap = new Map<string, { name: string; qty: number; revenue: number }>()
   
   bookingsData.forEach((booking: any) => {
-    if (booking.booking_earrings && Array.isArray(booking.booking_earrings)) {
-      booking.booking_earrings.forEach((be: any) => {
-        const earring = Array.isArray(be.earring) ? be.earring[0] : be.earring
-        if (earring) {
-          const earringId = earring.id
-          const existing = earringSalesMap.get(earringId) || { name: earring.name, qty: 0, revenue: 0 }
+    if (booking.booking_products && Array.isArray(booking.booking_products)) {
+      booking.booking_products.forEach((be: any) => {
+        const product = Array.isArray(be.product) ? be.product[0] : be.product
+        if (product) {
+          const productId = product.id
+          const existing = productSalesMap.get(productId) || { name: product.name, qty: 0, revenue: 0 }
           
           // Calculate revenue proportion based on price or estimate from total_paid
           const revenue = be.price ? be.price * (be.qty || 0) : (booking.total_paid || 0) * 0.5 // Estimate if no price
           
-          earringSalesMap.set(earringId, {
+          productSalesMap.set(productId, {
             name: existing.name,
             qty: existing.qty + (be.qty || 0),
             revenue: existing.revenue + revenue,
@@ -292,8 +292,8 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       })
     }
   })
-
-  const topEarrings = Array.from(earringSalesMap.values())
+  
+  const topProducts = Array.from(productSalesMap.values())
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 5)
 
@@ -382,7 +382,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Earring Costs</span>
+                <span className="text-sm font-medium">Product Costs</span>
               </div>
               <span className="text-sm font-bold">${totalEarringCosts.toFixed(2)}</span>
             </div>
@@ -406,7 +406,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Broken Earring Losses</span>
+                <span className="text-sm font-medium">Broken Product Losses</span>
               </div>
               <span className="text-sm font-bold">${totalBrokenEarringLosses.toFixed(2)}</span>
             </div>
@@ -485,31 +485,31 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Gem className="h-5 w-5" />
-              Top 5 Earrings by Sales
+              Top 5 Products by Sales
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {topEarrings.length > 0 ? (
+            {topProducts.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Earring</TableHead>
+                    <TableHead>Product</TableHead>
                     <TableHead className="text-right">Quantity Sold</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topEarrings.map((earring, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{earring.name}</TableCell>
-                      <TableCell className="text-right">{earring.qty}</TableCell>
-                      <TableCell className="text-right">${earring.revenue.toFixed(2)}</TableCell>
+                  {topProducts.map((product, index) => (
+                      <TableRow key={index}>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell className="text-right">{product.qty}</TableCell>
+                      <TableCell className="text-right">${product.revenue.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-sm text-muted-foreground">No earring sales in this period</p>
+              <p className="text-sm text-muted-foreground">No product sales in this period</p>
             )}
           </CardContent>
         </Card>

@@ -27,10 +27,11 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader } from '@/components/ui/loader'
 import { createClient } from '@/lib/supabase/client'
-import type { Earring } from '@/lib/types'
+import type { Product } from '@/lib/types'
 
-const earringSchema = z.object({
+const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  sku: z.string().optional().nullable(),
   category: z.string().optional(),
   cost: z.preprocess(
     (val) => val === '' || val === null || val === undefined ? null : Number(val),
@@ -47,65 +48,66 @@ const earringSchema = z.object({
   active: z.boolean(),
 })
 
-type EarringFormValues = z.infer<typeof earringSchema>
+type ProductFormValues = z.infer<typeof productSchema>
 
-interface EarringFormProps {
-  earring?: Earring
+interface ProductFormProps {
+  product?: Product
   children: React.ReactNode
   onSuccess?: () => void | Promise<void>
 }
 
-export function EarringForm({ earring, children, onSuccess }: EarringFormProps) {
+export function ProductForm({ product, children, onSuccess }: ProductFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  // Cast earring to any to handle Supabase's dynamic typing
-  const earringData = earring as any
+  // Cast product to any to handle Supabase's dynamic typing
+  const productData = product as any
 
-  const getDefaultValues = (): EarringFormValues => ({
-    name: earringData?.name || '',
-    category: earringData?.category || '',
-    cost: earringData?.cost ?? null,
-    sale_price: earringData?.sale_price || 0,
-    sold_qty: earringData?.sold_qty || 0,
-    active: earringData?.active ?? true,
+  const getDefaultValues = (): ProductFormValues => ({
+    name: productData?.name || '',
+    sku: productData?.sku || '',
+    category: productData?.category || '',
+    cost: productData?.cost ?? null,
+    sale_price: productData?.sale_price || 0,
+    sold_qty: productData?.sold_qty || 0,
+    active: productData?.active ?? true,
   })
 
-  const form = useForm<EarringFormValues>({
+  const form = useForm<ProductFormValues>({
     // @ts-expect-error - react-hook-form type inference issue with zod
-    resolver: zodResolver(earringSchema),
+    resolver: zodResolver(productSchema),
     defaultValues: getDefaultValues(),
   })
 
-  // Reset form when dialog opens or earring changes
+  // Reset form when dialog opens or product changes
   useEffect(() => {
     if (open) {
       form.reset(getDefaultValues())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, earringData?.id])
+  }, [open, productData?.id])
 
-  const onSubmit = async (values: EarringFormValues) => {
+  const onSubmit = async (values: ProductFormValues) => {
     setLoading(true)
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        throw new Error('You must be logged in to create an earring')
+        throw new Error('You must be logged in to create a product')
       }
 
-      if (earringData) {
+      if (productData) {
         const { error } = await supabase
-          .from('earrings')
+          .from('products')
           // @ts-expect-error - Supabase types issue
           .update(values)
-          .eq('id', earringData.id)
+          .eq('id', productData.id)
         if (error) throw error
       } else {
         const { error } = await supabase
-          .from('earrings')
+          .from('products')
           // @ts-expect-error - Supabase types issue
           .insert([{ ...values, user_id: user.id }])
         if (error) throw error
@@ -115,9 +117,9 @@ export function EarringForm({ earring, children, onSuccess }: EarringFormProps) 
       router.refresh()
       await onSuccess?.()
     } catch (error: any) {
-      console.error('Error saving earring:', error)
-      const errorMessage = error?.message || 'Failed to save earring'
-      alert(`Failed to save earring: ${errorMessage}`)
+      console.error('Error saving product:', error)
+      const errorMessage = error?.message || 'Failed to save product'
+      alert(`Failed to save product: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -128,9 +130,9 @@ export function EarringForm({ earring, children, onSuccess }: EarringFormProps) 
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{earringData ? 'Edit Earring' : 'Add New Earring'}</DialogTitle>
+          <DialogTitle>{productData ? 'Edit Product' : 'Add New Product'}</DialogTitle>
           <DialogDescription>
-            {earringData ? 'Update earring information' : 'Add a new earring to inventory'}
+            {productData ? 'Update product information' : 'Add a new product to inventory'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -154,18 +156,32 @@ export function EarringForm({ earring, children, onSuccess }: EarringFormProps) 
               <FormField
                 // @ts-ignore
                 control={form.control}
-                name="category"
+                name="sku"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category</FormLabel>
+                    <FormLabel>SKU</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+            <FormField
+              // @ts-ignore
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {/* @ts-ignore - react-hook-form type inference issue */}
             <FormField
               // @ts-ignore
@@ -305,7 +321,7 @@ export function EarringForm({ earring, children, onSuccess }: EarringFormProps) 
                     <Loader size="sm" className="mr-2" />
                     Saving...
                   </>
-                ) : earring ? (
+                ) : product ? (
                   'Update'
                 ) : (
                   'Create'
@@ -318,4 +334,3 @@ export function EarringForm({ earring, children, onSuccess }: EarringFormProps) 
     </Dialog>
   )
 }
-

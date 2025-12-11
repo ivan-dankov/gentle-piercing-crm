@@ -175,27 +175,27 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
               </CardContent>
             </Card>
 
-            {/* Earrings */}
-            {(currentBooking.booking_earrings && currentBooking.booking_earrings.length > 0) || currentBooking.earring ? (
+            {/* Products */}
+            {(currentBooking.booking_products && currentBooking.booking_products.length > 0) || currentBooking.product ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Earrings</CardTitle>
+                  <CardTitle className="text-base">Products</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {currentBooking.booking_earrings && currentBooking.booking_earrings.length > 0 ? (
-                    currentBooking.booking_earrings.map((be, idx) => {
-                      const earring = be.earring
-                      if (!earring) return null
-                      const cost = (earring.cost || 0) * be.qty
+                  {currentBooking.booking_products && currentBooking.booking_products.length > 0 ? (
+                    currentBooking.booking_products.map((be, idx) => {
+                      const product = be.product
+                      if (!product) return null
+                      const cost = (product.cost || 0) * be.qty
                       // Use price override if available, otherwise use sale_price
-                      const unitPrice = be.price !== null && be.price !== undefined ? be.price : earring.sale_price
+                      const unitPrice = be.price !== null && be.price !== undefined ? be.price : product.sale_price
                       const totalPrice = unitPrice * be.qty
                       return (
                         <div key={be.id || idx} className="p-3 border rounded-lg bg-muted/30">
                           <div className="space-y-2">
                             <div>
-                              <p className="text-xs text-muted-foreground">Earring Name</p>
-                              <p className="font-medium text-sm">{earring.name}</p>
+                              <p className="text-xs text-muted-foreground">Product Name</p>
+                              <p className="font-medium text-sm">{product.name}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
@@ -205,7 +205,7 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                               <div>
                                 <p className="text-xs text-muted-foreground">Unit Price</p>
                                 <p className="font-medium text-sm">
-                                  ${unitPrice.toFixed(2)} {be.price !== null && be.price !== undefined && be.price !== earring.sale_price && (
+                                  ${unitPrice.toFixed(2)} {be.price !== null && be.price !== undefined && be.price !== product.sale_price && (
                                     <span className="text-xs text-muted-foreground">(override)</span>
                                   )}
                                 </p>
@@ -232,7 +232,7 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                       <div className="space-y-2">
                         <div>
                           <p className="text-xs text-muted-foreground">Earring Name</p>
-                          <p className="font-medium text-sm">{currentBooking.earring.name}</p>
+                          <p className="font-medium text-sm">{currentBooking.product?.name}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Quantity</p>
@@ -252,23 +252,23 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
             ) : null}
 
             {/* Broken Earrings */}
-            {(currentBooking.booking_broken_earrings && currentBooking.booking_broken_earrings.length > 0) || currentBooking.broken_earring_loss > 0 ? (
+            {(currentBooking.booking_broken_products && currentBooking.booking_broken_products.length > 0) || currentBooking.broken_earring_loss > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Broken Earrings</CardTitle>
+                  <CardTitle className="text-base">Broken Products</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {currentBooking.booking_broken_earrings && currentBooking.booking_broken_earrings.length > 0 ? (
-                    currentBooking.booking_broken_earrings.map((be, idx) => {
-                      const earring = be.earring
-                      if (!earring) {
-                        // If earring relation is not loaded, try to show what we can
+                  {currentBooking.booking_broken_products && currentBooking.booking_broken_products.length > 0 ? (
+                    currentBooking.booking_broken_products.map((be, idx) => {
+                      const product = be.product
+                      if (!product) {
+                        // If product relation is not loaded, try to show what we can
                         return (
                           <div key={be.id || idx} className="p-3 border rounded-lg bg-muted/30">
                             <div className="space-y-2">
                               <div>
-                                <p className="text-xs text-muted-foreground">Earring ID</p>
-                                <p className="font-medium text-sm">{be.earring_id}</p>
+                                <p className="text-xs text-muted-foreground">Product ID</p>
+                                <p className="font-medium text-sm">{be.product_id}</p>
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
@@ -288,15 +288,15 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                           </div>
                         )
                       }
-                      // Use cost override if available, otherwise use earring.cost
-                      const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (earring.cost || 0)
+                      // Use cost override if available, otherwise use product.cost
+                      const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (product.cost || 0)
                       const totalCost = unitCost * be.qty
                       return (
                         <div key={be.id || idx} className="p-3 border rounded-lg bg-muted/30">
                           <div className="space-y-2">
                             <div>
-                              <p className="text-xs text-muted-foreground">Earring Name</p>
-                              <p className="font-medium text-sm">{earring.name}</p>
+                              <p className="text-xs text-muted-foreground">Product Name</p>
+                              <p className="font-medium text-sm">{product.name}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
@@ -306,7 +306,7 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                               <div>
                                 <p className="text-xs text-muted-foreground">Unit Cost</p>
                                 <p className="font-medium text-sm">
-                                  ${unitCost.toFixed(2)} {be.cost !== null && be.cost !== undefined && be.cost !== (earring.cost || 0) && (
+                                  ${unitCost.toFixed(2)} {be.cost !== null && be.cost !== undefined && be.cost !== (product.cost || 0) && (
                                     <span className="text-xs text-muted-foreground">(override)</span>
                                   )}
                                 </p>
@@ -362,19 +362,19 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                         </div>
                       ) : null
                     })()}
-                    {/* Calculate total earring revenue from all earrings (using price override if available) */}
+                    {/* Calculate total product revenue from all products (using price override if available) */}
                     {(() => {
-                      const totalEarringRevenue = currentBooking.booking_earrings?.reduce((sum, be) => {
-                        const earring = be.earring
-                        if (!earring) return sum
+                      const totalProductRevenue = currentBooking.booking_products?.reduce((sum, be) => {
+                        const product = be.product
+                        if (!product) return sum
                         // Use price override if available, otherwise use sale_price
-                        const unitPrice = be.price !== null && be.price !== undefined ? be.price : earring.sale_price
+                        const unitPrice = be.price !== null && be.price !== undefined ? be.price : product.sale_price
                         return sum + (unitPrice * be.qty)
                       }, 0) || currentBooking.earring_revenue || 0
-                      return totalEarringRevenue > 0 ? (
+                      return totalProductRevenue > 0 ? (
                         <div className="flex justify-between">
-                          <p className="text-sm text-muted-foreground">Earring Revenue</p>
-                          <p className="font-medium">${totalEarringRevenue.toFixed(2)}</p>
+                          <p className="text-sm text-muted-foreground">Product Revenue</p>
+                          <p className="font-medium">${totalProductRevenue.toFixed(2)}</p>
                         </div>
                       ) : null
                     })()}
@@ -391,18 +391,18 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                 <div className="border-t pt-3 mt-3">
                   <p className="text-sm font-semibold mb-2">Costs</p>
                   <div className="space-y-1 pl-2">
-                    {/* Calculate total earring cost from all earrings */}
+                    {/* Calculate total product cost from all products */}
                     {(() => {
-                      const totalEarringCost = currentBooking.booking_earrings?.reduce((sum, be) => {
-                        const earring = be.earring
-                        if (!earring) return sum
-                        const cost = (earring.cost || 0) * be.qty
+                      const totalProductCost = currentBooking.booking_products?.reduce((sum, be) => {
+                        const product = be.product
+                        if (!product) return sum
+                        const cost = (product.cost || 0) * be.qty
                         return sum + cost
                       }, 0) || currentBooking.earring_cost || 0
-                      return totalEarringCost > 0 ? (
+                      return totalProductCost > 0 ? (
                         <div className="flex justify-between">
-                          <p className="text-sm text-muted-foreground">Earring Cost</p>
-                          <p className="font-medium">${totalEarringCost.toFixed(2)}</p>
+                          <p className="text-sm text-muted-foreground">Product Cost</p>
+                          <p className="font-medium">${totalProductCost.toFixed(2)}</p>
                         </div>
                       ) : null
                     })()}
@@ -412,19 +412,19 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                         <p className="font-medium">${currentBooking.booksy_fee.toFixed(2)}</p>
                       </div>
                     )}
-                    {/* Calculate broken earring loss from junction table or legacy field */}
+                    {/* Calculate broken product loss from junction table or legacy field */}
                     {(() => {
-                      const brokenEarringLoss = currentBooking.booking_broken_earrings?.reduce((sum, be) => {
-                        const earring = be.earring
-                        if (!earring) return sum
-                        // Use cost override if available, otherwise use earring.cost
-                        const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (earring.cost || 0)
+                      const brokenProductLoss = currentBooking.booking_broken_products?.reduce((sum, be) => {
+                        const product = be.product
+                        if (!product) return sum
+                        // Use cost override if available, otherwise use product.cost
+                        const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (product.cost || 0)
                         return sum + (unitCost * be.qty)
                       }, 0) || currentBooking.broken_earring_loss || 0
-                      return brokenEarringLoss > 0 ? (
+                      return brokenProductLoss > 0 ? (
                         <div className="flex justify-between">
-                          <p className="text-sm text-muted-foreground">Broken Earring Loss</p>
-                          <p className="font-medium">${brokenEarringLoss.toFixed(2)}</p>
+                          <p className="text-sm text-muted-foreground">Broken Product Loss</p>
+                          <p className="font-medium">${brokenProductLoss.toFixed(2)}</p>
                         </div>
                       ) : null
                     })()}
@@ -441,29 +441,29 @@ export function BookingDetailsDrawer({ booking, open, onOpenChange, onBookingUpd
                 <div className="border-t pt-3 mt-3 space-y-2">
                   {(() => {
                     const totalServiceRevenue = currentBooking.booking_services?.reduce((sum, bs) => sum + (bs.price || 0), 0) || currentBooking.service_price || 0
-                    const totalEarringRevenue = currentBooking.booking_earrings?.reduce((sum, be) => {
-                      const earring = be.earring
-                      if (!earring) return sum
+                    const totalProductRevenue = currentBooking.booking_products?.reduce((sum, be) => {
+                      const product = be.product
+                      if (!product) return sum
                       // Use price override if available, otherwise use sale_price
-                      const unitPrice = be.price !== null && be.price !== undefined ? be.price : earring.sale_price
+                      const unitPrice = be.price !== null && be.price !== undefined ? be.price : product.sale_price
                       return sum + (unitPrice * be.qty)
                     }, 0) || currentBooking.earring_revenue || 0
                     const travelFee = currentBooking.travel_fee || 0
-                    const revenue = totalServiceRevenue + totalEarringRevenue + travelFee
+                    const revenue = totalServiceRevenue + totalProductRevenue + travelFee
                     
                     // Calculate costs
-                    const totalEarringCost = currentBooking.booking_earrings?.reduce((sum, be) => {
-                      const earring = be.earring
-                      if (!earring) return sum
-                      return sum + ((earring.cost || 0) * be.qty)
+                    const totalProductCost = currentBooking.booking_products?.reduce((sum, be) => {
+                      const product = be.product
+                      if (!product) return sum
+                      return sum + ((product.cost || 0) * be.qty)
                     }, 0) || currentBooking.earring_cost || 0
-                    const brokenEarringLoss = currentBooking.booking_broken_earrings?.reduce((sum, be) => {
-                      const earring = be.earring
-                      if (!earring) return sum
-                      const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (earring.cost || 0)
+                    const brokenProductLoss = currentBooking.booking_broken_products?.reduce((sum, be) => {
+                      const product = be.product
+                      if (!product) return sum
+                      const unitCost = be.cost !== null && be.cost !== undefined ? be.cost : (product.cost || 0)
                       return sum + (unitCost * be.qty)
                     }, 0) || currentBooking.broken_earring_loss || 0
-                    const totalCosts = totalEarringCost + (currentBooking.booksy_fee || 0) + brokenEarringLoss + (currentBooking.tax_amount || 0)
+                    const totalCosts = totalProductCost + (currentBooking.booksy_fee || 0) + brokenProductLoss + (currentBooking.tax_amount || 0)
                     
                     const projectedProfit = revenue - totalCosts
                     const realProfit = (currentBooking.total_paid || 0) - totalCosts

@@ -35,41 +35,44 @@ export interface Database {
           created_at?: string
         }
       }
-      earrings: {
+      products: {
         Row: {
           id: string
           name: string
+          sku: string | null
           category: string | null
-          cost_belarus: number | null
-          cost_poland: number | null
+          cost: number | null
           sale_price: number
-          stock_qty: number
           sold_qty: number
+          broken_qty: number
           active: boolean
+          user_id: string
           created_at: string
         }
         Insert: {
           id?: string
           name: string
+          sku?: string | null
           category?: string | null
-          cost_belarus?: number | null
-          cost_poland?: number | null
+          cost?: number | null
           sale_price: number
-          stock_qty?: number
           sold_qty?: number
+          broken_qty?: number
           active?: boolean
+          user_id: string
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
+          sku?: string | null
           category?: string | null
-          cost_belarus?: number | null
-          cost_poland?: number | null
+          cost?: number | null
           sale_price?: number
-          stock_qty?: number
           sold_qty?: number
+          broken_qty?: number
           active?: boolean
+          user_id?: string
           created_at?: string
         }
       }

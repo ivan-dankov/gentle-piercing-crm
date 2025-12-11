@@ -15,16 +15,16 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { createClient } from '@/lib/supabase/client'
-import type { Earring } from '@/lib/types'
+import type { Product } from '@/lib/types'
 import { Trash2 } from 'lucide-react'
 
-interface DeleteEarringButtonProps {
-  earring: Earring
+interface DeleteProductButtonProps {
+  product: Product
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
   size?: 'default' | 'sm' | 'lg' | 'icon'
 }
 
-export function DeleteEarringButton({ earring, variant = 'ghost', size = 'sm' }: DeleteEarringButtonProps) {
+export function DeleteProductButton({ product, variant = 'ghost', size = 'sm' }: DeleteProductButtonProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -34,17 +34,17 @@ export function DeleteEarringButton({ earring, variant = 'ghost', size = 'sm' }:
     setLoading(true)
     try {
       const { error } = await supabase
-        .from('earrings')
+        .from('products')
         .delete()
-        .eq('id', earring.id)
+        .eq('id', product.id)
       
       if (error) throw error
       
       setOpen(false)
       router.refresh()
     } catch (error) {
-      console.error('Error deleting earring:', error)
-      alert('Failed to delete earring')
+      console.error('Error deleting product:', error)
+      alert('Failed to delete product')
     } finally {
       setLoading(false)
     }
@@ -59,9 +59,9 @@ export function DeleteEarringButton({ earring, variant = 'ghost', size = 'sm' }:
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Earring</AlertDialogTitle>
+          <AlertDialogTitle>Delete Product</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete "{earring.name}"? This action cannot be undone and may affect existing bookings.
+            Are you sure you want to delete "{product.name}"? This action cannot be undone and may affect existing bookings.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -78,4 +78,3 @@ export function DeleteEarringButton({ earring, variant = 'ghost', size = 'sm' }:
     </AlertDialog>
   )
 }
-

@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
     // Protect dashboard routes
     if (request.nextUrl.pathname.startsWith('/bookings') ||
         request.nextUrl.pathname.startsWith('/clients') ||
-        request.nextUrl.pathname.startsWith('/earrings') ||
+        request.nextUrl.pathname.startsWith('/products') ||
         request.nextUrl.pathname.startsWith('/services') ||
         request.nextUrl.pathname === '/') {
       if (!user) {

@@ -22,14 +22,14 @@ export default async function BookingDetailPage({
     .select(`
       *,
       client:clients(*),
-      earring:earrings(*),
+      product:products(*),
       service:services(*),
-      booking_earrings(
+      booking_products(
         id,
-        earring_id,
+        product_id,
         qty,
         price,
-        earring:earrings(*)
+        product:products(*)
       ),
       booking_services(
         id,
@@ -37,12 +37,12 @@ export default async function BookingDetailPage({
         price,
         service:services(*)
       ),
-      booking_broken_earrings(
+      booking_broken_products(
         id,
-        earring_id,
+        product_id,
         qty,
         cost,
-        earring:earrings(*)
+        product:products(*)
       )
     `)
     .eq('id', id)

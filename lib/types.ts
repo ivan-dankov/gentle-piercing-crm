@@ -20,9 +20,10 @@ export interface AdditionalCost {
   created_at: string;
 }
 
-export interface Earring {
+export interface Product {
   id: string;
   name: string;
+  sku: string | null;
   category: string | null;
   cost: number | null;
   sale_price: number;
@@ -67,13 +68,13 @@ export interface Booking {
   created_at: string;
 }
 
-export interface BookingEarring {
+export interface BookingProduct {
   id: string;
   booking_id: string;
-  earring_id: string;
+  product_id: string;
   qty: number;
   price?: number | null;
-  earring?: Earring;
+  product?: Product;
 }
 
 export interface BookingService {
@@ -84,21 +85,21 @@ export interface BookingService {
   service?: Service;
 }
 
-export interface BookingBrokenEarring {
+export interface BookingBrokenProduct {
   id: string;
   booking_id: string;
-  earring_id: string;
+  product_id: string;
   qty: number;
   cost?: number | null;
-  earring?: Earring;
+  product?: Product;
 }
 
 export interface BookingWithRelations extends Booking {
   client?: Client | null;
-  earring?: Earring | null;
+  product?: Product | null;
   service?: Service | null;
-  booking_earrings?: BookingEarring[];
+  booking_products?: BookingProduct[];
   booking_services?: BookingService[];
-  booking_broken_earrings?: BookingBrokenEarring[];
+  booking_broken_products?: BookingBrokenProduct[];
 }
 
