@@ -1485,8 +1485,8 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                 <DrawerTitle>Search Products</DrawerTitle>
                                 <DrawerDescription>Browse by name or SKU</DrawerDescription>
                               </DrawerHeader>
-                              <div className="p-4 pt-0">
-                                <div className="rounded-md border bg-background">
+                              <div className="p-4 pt-0 flex-1 overflow-y-auto min-h-0">
+                                <div className="rounded-md border bg-background h-full">
                                   <Command className="h-full">
                                     <CommandInput placeholder="Search products by name or SKU..." autoFocus />
                                     <CommandList className="max-h-[60vh]">
