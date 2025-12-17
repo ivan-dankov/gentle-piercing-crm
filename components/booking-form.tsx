@@ -183,6 +183,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   const [services, setServices] = useState<Service[]>([])
   const [currentStep, setCurrentStep] = useState(1)
   const [clientDetailsExpanded, setClientDetailsExpanded] = useState(false)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -1116,7 +1117,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                     </FormControl>
                                   </PopoverTrigger>
                                   <PopoverContent 
-                                    className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[70vh] sm:max-h-[400px] overflow-hidden" 
+                                    className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[70vh] sm:max-h-[400px] overflow-y-auto" 
                                     align="start"
                                   >
                                     <Command className="h-full">
@@ -1437,11 +1438,11 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   <Badge
                                     key={product.id}
                                     variant={selectedItem ? "default" : "outline"}
-                                    className="h-11 px-4 text-base cursor-pointer hover:bg-primary/90 transition-colors"
+                                    className="h-11 px-4 text-base cursor-pointer hover:bg-primary/90 transition-colors max-w-[462px]"
                                     onClick={() => addProductByChip(product.id)}
                                   >
-                                    <div className="flex items-center gap-2">
-                                      <span>{product.name}</span>
+                                    <div className="flex items-center gap-2 w-full min-w-0">
+                                      <span className="truncate flex-1 min-w-0">{product.name}</span>
                                       {product.sku && (
                                         <span className="text-xs opacity-60">({product.sku})</span>
                                       )}
@@ -1460,7 +1461,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                         {/* All Products Search */}
                         <div className="pt-4 border-t">
                           <FormLabel className="text-base mb-3 block">Search All Products</FormLabel>
-                          <Popover>
+                          <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
@@ -1472,21 +1473,22 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent 
-                              className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[70vh] sm:max-h-[400px] overflow-hidden" 
+                              className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[70vh] sm:max-h-[400px] overflow-y-auto" 
                               align="start"
                             >
                               <Command className="h-full">
-                                <CommandInput placeholder="Search products..." />
+                                <CommandInput placeholder="Search products by name or SKU..." />
                                 <CommandList className="max-h-[calc(70vh-3rem)] sm:max-h-[350px]">
                                   <CommandEmpty>No product found.</CommandEmpty>
                                   <CommandGroup>
                                     {products.map((product) => (
                                       <CommandItem
                                         key={product.id}
-                                        value={product.name}
+                                        value={`${product.name}${product.sku ? ` ${product.sku}` : ''}`}
                                         keywords={[product.id, product.name, product.sku || ''].filter(Boolean)}
                                         onSelect={() => {
                                           addProductByChip(product.id)
+                                          setProductSearchOpen(false)
                                         }}
                                       >
                                         <div className="flex items-center justify-between w-full">

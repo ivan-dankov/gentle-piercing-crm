@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt } from 'lucide-react'
+import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt, Plus } from 'lucide-react'
 import { DashboardDateRangePicker } from '@/components/dashboard-date-range-picker'
 import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString, dateToCalendarISOStringEnd, getTodayInTimezone, getMonthBoundsInTimezone } from '@/lib/date-utils'
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, startOfWeek, endOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
@@ -14,6 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
+import { BookingForm } from '@/components/booking-form'
+import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
@@ -326,7 +328,16 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-        <DashboardDateRangePicker />
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <BookingForm>
+            <Button size="sm" className="text-xs sm:text-sm">
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">New Booking</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </BookingForm>
+          <DashboardDateRangePicker />
+        </div>
       </div>
 
       {/* Key Metrics */}
