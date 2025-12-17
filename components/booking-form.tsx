@@ -36,6 +36,14 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { createClient } from '@/lib/supabase/client'
 import type { Booking, BookingWithRelations, Client, Product, Service } from '@/lib/types'
@@ -1461,8 +1469,8 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                         {/* All Products Search */}
                         <div className="pt-4 border-t">
                           <FormLabel className="text-base mb-3 block">Search All Products</FormLabel>
-                          <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                            <PopoverTrigger asChild>
+                          <Drawer open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                            <DrawerTrigger asChild>
                               <Button
                                 variant="outline"
                                 className="w-full h-12 justify-between text-base"
@@ -1471,42 +1479,47 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                 <span>Search or add product...</span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
-                            </PopoverTrigger>
-                            <PopoverContent 
-                              className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[70vh] sm:max-h-[400px] overflow-y-auto" 
-                              align="start"
-                            >
-                              <Command className="h-full">
-                                <CommandInput placeholder="Search products by name or SKU..." />
-                                <CommandList className="max-h-[calc(70vh-3rem)] sm:max-h-[350px]">
-                                  <CommandEmpty>No product found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {products.map((product) => (
-                                      <CommandItem
-                                        key={product.id}
-                                        value={`${product.name}${product.sku ? ` ${product.sku}` : ''}`}
-                                        keywords={[product.id, product.name, product.sku || ''].filter(Boolean)}
-                                        onSelect={() => {
-                                          addProductByChip(product.id)
-                                          setProductSearchOpen(false)
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-between w-full">
-                                          <div>
-                                            <span>{product.name}</span>
-                                            {product.sku && (
-                                              <span className="ml-2 text-xs text-muted-foreground">SKU: {product.sku}</span>
-                                            )}
-                                          </div>
-                                          <span className="ml-auto text-sm text-muted-foreground">${product.sale_price.toFixed(2)}</span>
-                                        </div>
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                            </DrawerTrigger>
+                            <DrawerContent className="max-h-[90vh]">
+                              <DrawerHeader className="pb-2">
+                                <DrawerTitle>Search Products</DrawerTitle>
+                                <DrawerDescription>Browse by name or SKU</DrawerDescription>
+                              </DrawerHeader>
+                              <div className="p-4 pt-0">
+                                <div className="rounded-md border bg-background">
+                                  <Command className="h-full">
+                                    <CommandInput placeholder="Search products by name or SKU..." autoFocus />
+                                    <CommandList className="max-h-[60vh]">
+                                      <CommandEmpty>No product found.</CommandEmpty>
+                                      <CommandGroup>
+                                        {products.map((product) => (
+                                          <CommandItem
+                                            key={product.id}
+                                            value={`${product.name}${product.sku ? ` ${product.sku}` : ''}`}
+                                            keywords={[product.id, product.name, product.sku || ''].filter(Boolean)}
+                                            onSelect={() => {
+                                              addProductByChip(product.id)
+                                              setProductSearchOpen(false)
+                                            }}
+                                          >
+                                            <div className="flex items-center justify-between w-full">
+                                              <div>
+                                                <span>{product.name}</span>
+                                                {product.sku && (
+                                                  <span className="ml-2 text-xs text-muted-foreground">SKU: {product.sku}</span>
+                                                )}
+                                              </div>
+                                              <span className="ml-auto text-sm text-muted-foreground">${product.sale_price.toFixed(2)}</span>
+                                            </div>
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </div>
+                              </div>
+                            </DrawerContent>
+                          </Drawer>
                         </div>
 
                         {/* Selected Products */}
