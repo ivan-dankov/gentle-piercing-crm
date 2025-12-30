@@ -207,6 +207,18 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
     }
   }, [open])
 
+  // Focus search input when product search drawer opens
+  useEffect(() => {
+    if (productSearchOpen) {
+      // Small delay to ensure drawer is fully rendered
+      const timer = setTimeout(() => {
+        const input = document.querySelector('[data-product-search-input]') as HTMLInputElement
+        input?.focus()
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [productSearchOpen])
+
   const loadData = async () => {
     setDataLoading(true)
     try {
@@ -1488,7 +1500,11 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                               <div className="p-4 pt-0 flex-1 overflow-y-auto min-h-0">
                                 <div className="rounded-md border bg-background h-full">
                                   <Command className="h-full">
-                                    <CommandInput placeholder="Search products by name or SKU..." autoFocus />
+                                    <CommandInput 
+                                      placeholder="Search products by name or SKU..." 
+                                      autoFocus
+                                      data-product-search-input
+                                    />
                                     <CommandList className="max-h-[60vh]">
                                       <CommandEmpty>No product found.</CommandEmpty>
                                       <CommandGroup>
