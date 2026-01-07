@@ -56,10 +56,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-xl font-bold">Gentle Piercing</h1>
+      <div className="flex h-20 items-center border-b px-6 bg-gradient-to-br from-sidebar to-sidebar/80">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+          Gentle Piercing
+        </h1>
       </div>
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1.5 px-4 py-6">
         {navigation.map((item) => {
           const isActive = pathname === item.href || 
             (item.href !== '/' && pathname?.startsWith(item.href))
@@ -69,22 +71,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-[1.01]'
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className={cn(
+                "h-5 w-5 transition-colors",
+                isActive ? "text-primary-foreground" : "text-muted-foreground/70"
+              )} />
               {item.name}
             </Link>
           )
         })}
       </nav>
-      <div className="border-t p-4">
+      <div className="border-t p-5 bg-gradient-to-br from-sidebar/50 to-sidebar">
         {user && (
-          <div className="mb-2 px-3 py-2">
-            <p className="text-sm font-medium">{user.email}</p>
+          <div className="mb-3 px-3 py-2.5 rounded-lg bg-muted/30">
+            <p className="text-sm font-medium truncate">{user.email}</p>
           </div>
         )}
         <LogoutButton />

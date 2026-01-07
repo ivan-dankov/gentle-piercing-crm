@@ -325,12 +325,14 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     .slice(0, 5)
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+          Dashboard
+        </h1>
         <div className="flex items-center gap-3 self-start sm:self-auto">
           <BookingForm>
-            <Button size="sm" className="text-xs sm:text-sm">
+            <Button size="sm" className="text-xs sm:text-sm shadow-sm">
               <Plus className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">New Booking</span>
               <span className="sm:hidden">New</span>
@@ -341,93 +343,113 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <DollarSign className="h-5 w-5 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Profit</CardTitle>
+            <div className="p-2 bg-accent/20 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-accent" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalProfit.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${totalProfit.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Bookings</CardTitle>
+            <div className="p-2 bg-secondary/40 rounded-lg">
+              <Calendar className="h-5 w-5 text-secondary-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalBookings}</div>
+            <div className="text-2xl font-bold tracking-tight">{totalBookings}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Costs</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Costs</CardTitle>
+            <div className="p-2 bg-muted/60 rounded-lg">
+              <TrendingDown className="h-5 w-5 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalCosts.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${totalCosts.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Costs Breakdown */}
-      <Card>
+      <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle>Costs Breakdown</CardTitle>
+          <CardTitle className="text-xl" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+            Costs Breakdown
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
                 <span className="text-sm font-medium">Product Costs</span>
               </div>
-              <span className="text-sm font-bold">${totalEarringCosts.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">${totalEarringCosts.toFixed(2)}</span>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Car className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-accent/20 rounded-lg">
+                  <Car className="h-4 w-4 text-accent" />
+                </div>
                 <span className="text-sm font-medium">Travel Fees</span>
               </div>
-              <span className="text-sm font-bold">${totalTravelFees.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">${totalTravelFees.toFixed(2)}</span>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-secondary/40 rounded-lg">
+                  <CreditCard className="h-4 w-4 text-secondary-foreground" />
+                </div>
                 <span className="text-sm font-medium">Booksy Fees</span>
               </div>
-              <span className="text-sm font-bold">${totalBooksyFees.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">${totalBooksyFees.toFixed(2)}</span>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-destructive/10 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                </div>
                 <span className="text-sm font-medium">Broken Product Losses</span>
               </div>
-              <span className="text-sm font-bold">${totalBrokenEarringLosses.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">${totalBrokenEarringLosses.toFixed(2)}</span>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-muted/60 rounded-lg">
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <span className="text-sm font-medium">Tax</span>
               </div>
-              <span className="text-sm font-bold">${totalTax.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">${totalTax.toFixed(2)}</span>
             </div>
             {totalAdditionalCosts > 0 && (
               <>
@@ -458,44 +480,52 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       </Card>
 
       {/* Averages per Booking */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      <div className="grid gap-5 md:grid-cols-3">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Revenue/Booking</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Revenue/Booking</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <DollarSign className="h-5 w-5 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgRevenuePerBooking.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${avgRevenuePerBooking.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Profit/Booking</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Profit/Booking</CardTitle>
+            <div className="p-2 bg-accent/20 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-accent" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgProfitPerBooking.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${avgProfitPerBooking.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Cost/Booking</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Cost/Booking</CardTitle>
+            <div className="p-2 bg-muted/60 rounded-lg">
+              <TrendingDown className="h-5 w-5 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgCostPerBooking.toFixed(2)}</div>
+            <div className="text-2xl font-bold tracking-tight">${avgCostPerBooking.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Top Earrings and Services */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Gem className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-3 text-xl" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Gem className="h-5 w-5 text-primary" />
+              </div>
               Top 5 Products by Sales
             </CardTitle>
           </CardHeader>
@@ -504,17 +534,17 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Quantity Sold</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="font-semibold">Product</TableHead>
+                    <TableHead className="text-right font-semibold">Quantity Sold</TableHead>
+                    <TableHead className="text-right font-semibold">Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {topProducts.map((product, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell className="text-right">{product.qty}</TableCell>
-                      <TableCell className="text-right">${product.revenue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">${product.revenue.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -525,10 +555,12 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-3 text-xl" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+              <div className="p-2 bg-accent/20 rounded-lg">
+                <Briefcase className="h-5 w-5 text-accent" />
+              </div>
               Top Services by Sales
             </CardTitle>
           </CardHeader>
@@ -537,17 +569,17 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead className="text-right">Bookings</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="font-semibold">Service</TableHead>
+                    <TableHead className="text-right font-semibold">Bookings</TableHead>
+                    <TableHead className="text-right font-semibold">Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {topServices.map((service, index) => (
-                    <TableRow key={index}>
+                    <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">{service.name}</TableCell>
                       <TableCell className="text-right">{service.count}</TableCell>
-                      <TableCell className="text-right">${service.revenue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">${service.revenue.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

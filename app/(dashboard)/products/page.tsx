@@ -20,17 +20,19 @@ export default async function ProductsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">Products Inventory</h1>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 mb-8">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+          Products Inventory
+        </h1>
         <div className="flex gap-2">
           <ProductImportDialog>
-            <Button variant="outline" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto shadow-sm">
               <Upload className="h-4 w-4 mr-2" />
               Import Products
             </Button>
           </ProductImportDialog>
           <ProductForm>
-            <Button className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto shadow-sm">
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
@@ -38,9 +40,11 @@ export default async function ProductsPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle>All Products</CardTitle>
+          <CardTitle className="text-xl" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+            All Products
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {productsData && productsData.length > 0 ? (

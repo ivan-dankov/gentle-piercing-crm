@@ -30,18 +30,22 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+          Settings
+        </h1>
+        <p className="text-muted-foreground mt-2 text-base">
           Manage your account settings and preferences
         </p>
       </div>
 
-      <Card>
+      <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle>Timezone</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-xl" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+            Timezone
+          </CardTitle>
+          <CardDescription className="text-base">
             Set your timezone to ensure dates and times are displayed correctly. 
             Default is set to Europe/Warsaw (Poland).
           </CardDescription>

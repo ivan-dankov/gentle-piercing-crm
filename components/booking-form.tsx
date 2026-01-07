@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -36,14 +36,6 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { createClient } from '@/lib/supabase/client'
 import type { Booking, BookingWithRelations, Client, Product, Service } from '@/lib/types'
@@ -125,14 +117,7 @@ const bookingSchema = z.object({
     service_id: z.union([z.string().uuid(), z.literal('')]),
     price: z.number().min(0).nullable().optional(),
   })).superRefine((items, ctx) => {
-    const validItems = items.filter(item => item.service_id && item.service_id.trim() !== '')
-    if (validItems.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'At least one service is required',
-        path: [],
-      })
-    }
+    // Allow zero services - no validation required
     // Validate each non-empty item has a valid UUID
     items.forEach((item, index) => {
       if (item.service_id && item.service_id.trim() !== '') {
@@ -191,9 +176,31 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   const [services, setServices] = useState<Service[]>([])
   const [currentStep, setCurrentStep] = useState(1)
   const [clientDetailsExpanded, setClientDetailsExpanded] = useState(false)
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [timeClientExpanded, setTimeClientExpanded] = useState(false)
+  const [paymentExpanded, setPaymentExpanded] = useState(false)
+  const [totalPaidManuallyEdited, setTotalPaidManuallyEdited] = useState(false)
+  const [productSearchQuery, setProductSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const router = useRouter()
   const supabase = createClient()
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(productSearchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [productSearchQuery])
+
+  // Memoized filtered products for search
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearchQuery.trim()) return products
+    const query = debouncedSearchQuery.toLowerCase()
+    return products.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      (p.sku && p.sku.toLowerCase().includes(query))
+    )
+  }, [products, debouncedSearchQuery])
 
   useEffect(() => {
     if (open) {
@@ -207,31 +214,23 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
     }
   }, [open])
 
-  // Focus search input when product search drawer opens
-  useEffect(() => {
-    if (productSearchOpen) {
-      // Small delay to ensure drawer is fully rendered
-      const timer = setTimeout(() => {
-        const input = document.querySelector('[data-product-search-input]') as HTMLInputElement
-        input?.focus()
-      }, 150)
-      return () => clearTimeout(timer)
-    }
-  }, [productSearchOpen])
 
   const loadData = async () => {
     setDataLoading(true)
     try {
-      const [clientsRes, productsRes, servicesRes] = await Promise.all([
+      const [clientsRes, productsRes, starredProductsRes, servicesRes] = await Promise.all([
         supabase.from('clients').select('*').order('name'),
         supabase.from('products').select('*').eq('active', true).order('sold_qty', { ascending: false }),
+        supabase.from('products').select('*').eq('active', true).eq('starred', true).order('sold_qty', { ascending: false }),
         supabase.from('services').select('*').eq('active', true).order('name'),
       ])
       if (clientsRes.data) setClients(clientsRes.data)
       if (productsRes.data) {
         setProducts(productsRes.data)
-        // Get top 10 most used products
-        setMostUsedProducts(productsRes.data.slice(0, 10))
+      }
+      if (starredProductsRes.data) {
+        // Use starred products instead of most used
+        setMostUsedProducts(starredProductsRes.data)
       }
       if (servicesRes.data) {
         setServices(servicesRes.data)
@@ -329,25 +328,18 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, booking?.id])
 
-  // Step navigation functions
+  // Step navigation functions - now 3 steps instead of 5
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        // Time is always set, client is optional
+        // Services step - always valid (can have zero services)
         return true
       case 2:
-        // At least one service required
-        const serviceItems = form.getValues('service_items') || []
-        return serviceItems.some(item => item.service_id)
-      case 3:
-        // At least one product required
+        // Products step - at least one product required
         const productItems = form.getValues('product_items') || []
         return productItems.some(item => item.product_id)
-      case 4:
-        // Payment method is always set (defaults to cash)
-        return true
-      case 5:
-        // Totals step - always valid
+      case 3:
+        // Review & Totals step - always valid
         return true
       default:
         return false
@@ -355,7 +347,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
   }
 
   const goToNextStep = () => {
-    if (validateStep(currentStep) && currentStep < 5) {
+    if (validateStep(currentStep) && currentStep < 3) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -366,15 +358,15 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
     }
   }
 
-  // Auto-fill total_paid when reaching step 5
+  // Auto-fill total_paid when reaching step 3
   useEffect(() => {
-    if (currentStep === 5 && !form.getValues('total_paid')) {
+    if (currentStep === 3 && !form.getValues('total_paid') && !totalPaidManuallyEdited) {
       const calculated = form.getValues('calculated_total')
       if (calculated) {
         form.setValue('total_paid', calculated)
       }
     }
-  }, [currentStep, form])
+  }, [currentStep, form, totalPaidManuallyEdited])
 
   // Watch fields for conditional rendering and auto-calculations
   const clientId = useWatch({ control: form.control, name: 'client_id' })
@@ -521,10 +513,17 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
     const calculated = sp + er
     if (calculated > 0) {
       form.setValue('calculated_total', calculated)
+      // Auto-update total_paid if not manually edited
+      if (!totalPaidManuallyEdited) {
+        form.setValue('total_paid', calculated)
+      }
     } else {
       form.setValue('calculated_total', null)
+      if (!totalPaidManuallyEdited) {
+        form.setValue('total_paid', null)
+      }
     }
-  }, [totalServicePrice, productRevenue])
+  }, [totalServicePrice, productRevenue, form, totalPaidManuallyEdited])
 
   // Auto-calculate end_time from sum of all service durations
   useEffect(() => {
@@ -654,7 +653,34 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
       .order('sold_qty', { ascending: false })
     if (data) {
       setProducts(data)
-      setMostUsedProducts(data.slice(0, 10))
+    }
+    // Reload starred products
+    const { data: starredData } = await supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .eq('starred', true)
+      .order('sold_qty', { ascending: false })
+    if (starredData) {
+      setMostUsedProducts(starredData)
+    }
+  }
+
+  const handleSaveProductPrice = async (productId: string, newPrice: number) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        // @ts-expect-error - Supabase types issue
+        .update({ sale_price: newPrice })
+        .eq('id', productId)
+      if (error) throw error
+      
+      // Update local products list
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, sale_price: newPrice } : p))
+      setMostUsedProducts(prev => prev.map(p => p.id === productId ? { ...p, sale_price: newPrice } : p))
+    } catch (error) {
+      console.error('Error saving product price:', error)
+      alert('Failed to save product price')
     }
   }
 
@@ -988,7 +1014,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             )}
           </div>
           <div className="flex items-center justify-center gap-2">
-            {[1, 2, 3, 4, 5].map((step) => (
+            {[1, 2, 3].map((step) => (
               <div
                 key={step}
                 className={cn(
@@ -1002,7 +1028,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
               />
             ))}
             <span className="ml-2 text-xs text-muted-foreground">
-              {currentStep}/5
+              {currentStep}/3
             </span>
           </div>
         </DialogHeader>
@@ -1017,7 +1043,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                 e.stopPropagation()
                 return false
               }
-              if (currentStep === 5) {
+              if (currentStep === 3) {
                 console.log('Form submitted on step 5, calling handleSubmit')
                 const handleSubmitResult = form.handleSubmit(
                   (data) => {
@@ -1045,34 +1071,532 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             }}
             className="flex flex-col flex-1 min-h-0"
           >
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 pb-20">
-              {/* Step 1: Time & Client */}
+            <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-20">
+              {/* Step 1: Services */}
               {currentStep === 1 && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Time & Client
+                    <Scissors className="h-5 w-5" />
+                    Services
                   </h2>
-                  <div className="space-y-4">
+                  
+                  {/* Service Chips */}
+                  <div>
+                    <FormLabel className="text-sm mb-2 block">Select Services</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {services.map((service) => {
+                        const isSelected = serviceItems.some(item => item.service_id === service.id)
+                        return (
+                          <Badge
+                            key={service.id}
+                            variant={isSelected ? "default" : "outline"}
+                            className="h-10 px-3 text-sm cursor-pointer hover:bg-primary/90 transition-colors"
+                            onClick={() => {
+                              if (isSelected) {
+                                const item = serviceItems.find(item => item.service_id === service.id)
+                                if (item?.id) {
+                                  removeServiceItem(item.id)
+                                }
+                              } else {
+                                addServiceByChip(service.id)
+                              }
+                            }}
+                          >
+                            {service.name}
+                            {service.duration_minutes > 0 && (
+                              <span className="ml-1 text-xs opacity-75">({service.duration_minutes}m)</span>
+                            )}
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Selected Services */}
+                  {serviceItems.filter(item => item.service_id).length > 0 && (
+                    <div className="space-y-2 pt-3 border-t">
+                      <FormLabel className="text-sm">Selected Services</FormLabel>
+                      {serviceItems.filter(item => item.service_id).map((item, index) => {
+                        const actualIndex = serviceItems.findIndex(si => si.id === item.id)
+                        const selectedService = services.find(s => s.id === item.service_id)
+                        return (
+                          <div key={item.id || index} className="p-2 border rounded-lg space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{selectedService?.name}</p>
+                                {selectedService && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {selectedService.duration_minutes} min
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeServiceItem(item.id)}
+                                className="h-8 w-8"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name={`service_items.${actualIndex}.price`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Price</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={field.value === null || field.value === undefined ? '' : field.value}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        field.onChange(value === '' ? '' : value)
+                                      }}
+                                      onBlur={(e) => {
+                                        const value = e.target.value
+                                        field.onBlur()
+                                        if (value === '') {
+                                          field.onChange(null)
+                                        } else {
+                                          const numValue = parseFloat(value)
+                                          field.onChange(isNaN(numValue) ? null : numValue)
+                                        }
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      disabled={isModel || !item.service_id}
+                                      className={isModel || !item.service_id ? 'opacity-50 h-9' : 'h-9'}
+                                      placeholder="0.00"
+                                      name={field.name}
+                                      ref={field.ref}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Model Session */}
+                  <FormField
+                    control={form.control}
+                    name="is_model"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm">Model Session</FormLabel>
+                          <p className="text-xs text-muted-foreground">Set service prices to 0</p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked)
+                              handleModelToggle(checked)
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Step 2: Products */}
+              {currentStep === 2 && (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Scissors className="h-5 w-5" />
+                    Products
+                  </h2>
+                  <div className="space-y-3">
+                        {/* Starred Products Chips */}
+                        {mostUsedProducts.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <FormLabel className="text-sm">Starred Products</FormLabel>
+                              <ProductForm onSuccess={handleProductCreated}>
+                                <Button type="button" variant="outline" size="sm" className="h-8">
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Create
+                                </Button>
+                              </ProductForm>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {mostUsedProducts.map((product) => {
+                                const selectedItem = productItems.find(item => item.product_id === product.id)
+                                return (
+                                  <Badge
+                                    key={product.id}
+                                    variant={selectedItem ? "default" : "outline"}
+                                    className="h-10 px-3 text-sm cursor-pointer hover:bg-primary/90 transition-colors max-w-[462px]"
+                                    onClick={() => addProductByChip(product.id)}
+                                  >
+                                    <div className="flex items-center gap-2 w-full min-w-0">
+                                      <span className="truncate flex-1 min-w-0">{product.name}</span>
+                                      {product.sku && (
+                                        <span className="text-xs opacity-60">({product.sku})</span>
+                                      )}
+                                      <span className="text-xs opacity-75">${product.sale_price.toFixed(2)}</span>
+                                      {selectedItem && (
+                                        <span className="text-xs opacity-75">x{selectedItem.qty}</span>
+                                      )}
+                                    </div>
+                                  </Badge>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* All Products Search - Inline */}
+                        <div className="pt-3 border-t">
+                          <FormLabel className="text-sm mb-2 block">Search All Products</FormLabel>
+                          <Input
+                            placeholder="Search products by name or SKU..."
+                            value={productSearchQuery}
+                            onChange={(e) => setProductSearchQuery(e.target.value)}
+                            className="h-10 mb-2"
+                          />
+                          {productSearchQuery.trim() && (
+                            <div className="border rounded-md max-h-60 overflow-y-auto">
+                              {filteredProducts.length > 0 ? (
+                                <div className="divide-y">
+                                  {filteredProducts.map((product) => (
+                                    <div
+                                      key={product.id}
+                                      className="p-2 hover:bg-accent cursor-pointer flex items-center justify-between"
+                                      onClick={() => {
+                                        addProductByChip(product.id)
+                                        setProductSearchQuery('')
+                                      }}
+                                    >
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{product.name}</p>
+                                        {product.sku && (
+                                          <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                                        )}
+                                      </div>
+                                      <span className="ml-2 text-sm text-muted-foreground whitespace-nowrap">
+                                        ${product.sale_price.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                  No products found
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Selected Products */}
+                        {productItems.filter(item => item.product_id).length > 0 && (
+                          <div className="space-y-2 pt-3 border-t">
+                            <FormLabel className="text-sm">Selected Products</FormLabel>
+                            {productItems.filter(item => item.product_id).map((item, index) => {
+                              const actualIndex = productItems.findIndex(ei => ei.id === item.id)
+                              const selectedProduct = products.find(e => e.id === item.product_id)
+                              return (
+                                <div key={item.id || index} className="p-2 border rounded-lg space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="font-medium text-sm">{selectedProduct?.name}</p>
+                                      {selectedProduct && (
+                                        <>
+                                          {selectedProduct.sku && (
+                                            <p className="text-xs text-muted-foreground">SKU: {selectedProduct.sku}</p>
+                                          )}
+                                          <p className="text-xs text-muted-foreground">
+                                            ${selectedProduct.sale_price.toFixed(2)} each
+                                          </p>
+                                        </>
+                                      )}
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => removeProductItem(item.id)}
+                                      className="h-8 w-8"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <FormField
+                                      control={form.control}
+                                      name={`product_items.${actualIndex}.qty`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-xs">Quantity</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              min="1"
+                                              value={field.value === null || field.value === undefined ? '' : field.value}
+                                              onChange={(e) => {
+                                                const value = e.target.value
+                                                field.onChange(value === '' ? '' : value)
+                                              }}
+                                              onBlur={(e) => {
+                                                const value = e.target.value
+                                                field.onBlur()
+                                                if (value === '') {
+                                                  field.onChange(undefined)
+                                                } else {
+                                                  const numValue = parseInt(value, 10)
+                                                  field.onChange(isNaN(numValue) || numValue < 1 ? 1 : numValue)
+                                                }
+                                              }}
+                                              onFocus={(e) => e.target.select()}
+                                              className="h-9"
+                                              name={field.name}
+                                              ref={field.ref}
+                                            />
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <FormField
+                                      control={form.control}
+                                      name={`product_items.${actualIndex}.price`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-xs">Price</FormLabel>
+                                          <FormControl>
+                                            <div className="flex gap-1">
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={field.value === null || field.value === undefined ? '' : field.value}
+                                                onChange={(e) => {
+                                                  const value = e.target.value
+                                                  field.onChange(value === '' ? '' : value)
+                                                }}
+                                                onBlur={(e) => {
+                                                  const value = e.target.value
+                                                  field.onBlur()
+                                                  if (value === '') {
+                                                    field.onChange(null)
+                                                  } else {
+                                                    const numValue = parseFloat(value)
+                                                    field.onChange(isNaN(numValue) ? null : numValue)
+                                                  }
+                                                }}
+                                                onFocus={(e) => e.target.select()}
+                                                className="h-9 flex-1"
+                                                placeholder={selectedProduct ? selectedProduct.sale_price.toFixed(2) : "0.00"}
+                                                name={field.name}
+                                                ref={field.ref}
+                                              />
+                                              {selectedProduct && field.value !== null && field.value !== undefined && 
+                                               field.value !== selectedProduct.sale_price && (
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  className="h-9 px-2"
+                                                  onClick={() => handleSaveProductPrice(selectedProduct.id, field.value as number)}
+                                                >
+                                                  Save
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Review, Totals & Payment */}
+              {currentStep === 3 && (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Review & Totals
+                  </h2>
+                  
+                  {/* Review Section */}
+                  <div className="space-y-3">
+                    <div>
+                      <FormLabel className="text-sm mb-2 block">Services</FormLabel>
+                      {serviceItems.filter(item => item.service_id).length > 0 ? (
+                        <div className="space-y-2">
+                          {serviceItems.filter(item => item.service_id).map((item) => {
+                            const service = services.find(s => s.id === item.service_id)
+                            return (
+                              <div key={item.id} className="p-2 border rounded-lg flex justify-between items-center">
+                                <span className="text-sm font-medium">{service?.name || 'Unknown'}</span>
+                                <span className="text-sm font-medium">${(item.price || 0).toFixed(2)}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No services selected</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <FormLabel className="text-sm mb-2 block">Products</FormLabel>
+                      {productItems.filter(item => item.product_id).length > 0 ? (
+                        <div className="space-y-2">
+                          {productItems.filter(item => item.product_id).map((item) => {
+                            const product = products.find(p => p.id === item.product_id)
+                            const unitPrice = item.price !== null && item.price !== undefined ? item.price : (product?.sale_price || 0)
+                            return (
+                              <div key={item.id} className="p-2 border rounded-lg flex justify-between items-center">
+                                <span className="text-sm font-medium">{product?.name || 'Unknown'} x{item.qty}</span>
+                                <span className="text-sm font-medium">${(unitPrice * item.qty).toFixed(2)}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No products selected</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Totals Section */}
+                  <div className="pt-3 border-t space-y-3">
+                    {revenue > 0 && (
+                      <div className="flex justify-between items-center">
+                        <FormLabel className="text-sm font-semibold">To Pay</FormLabel>
+                        <p className="text-xl font-bold">${revenue.toFixed(2)}</p>
+                      </div>
+                    )}
+                    <FormField
+                      control={form.control}
+                      name="total_paid"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex justify-between items-center">
+                            <FormLabel className="text-sm font-semibold">Total Paid</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={field.value === null || field.value === undefined ? '' : field.value}
+                                onChange={(e) => {
+                                  setTotalPaidManuallyEdited(true)
+                                  const value = e.target.value
+                                  if (value === '') {
+                                    field.onChange(null)
+                                  } else {
+                                    const numValue = parseFloat(value)
+                                    field.onChange(isNaN(numValue) ? null : numValue)
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const value = e.target.value
+                                  field.onBlur()
+                                  if (value === '') {
+                                    field.onChange(null)
+                                  } else {
+                                    const numValue = parseFloat(value)
+                                    field.onChange(isNaN(numValue) ? null : numValue)
+                                  }
+                                }}
+                                onFocus={(e) => {
+                                  setTotalPaidManuallyEdited(true)
+                                  e.target.select()
+                                }}
+                                placeholder="0.00"
+                                className="text-lg font-bold h-10 w-32 text-right"
+                                name={field.name}
+                                ref={field.ref}
+                              />
+                            </FormControl>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {(totalPaidAmount > 0 || revenue > 0) && (
+                      <>
+                        {profitsAreEqual ? (
+                          <div className="flex justify-between items-center">
+                            <FormLabel className="text-sm font-semibold">Profit</FormLabel>
+                            <p className={`text-xl font-bold ${realProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              ${realProfit.toFixed(2)}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            {revenue > 0 && (
+                              <div className="flex justify-between items-center">
+                                <FormLabel className="text-sm font-semibold">Projected Profit</FormLabel>
+                                <p className={`text-base font-semibold ${projectedProfit < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                  ${projectedProfit.toFixed(2)}
+                                </p>
+                              </div>
+                            )}
+                            {totalPaidAmount > 0 && (
+                              <div className="flex justify-between items-center">
+                                <FormLabel className="text-sm font-semibold">Real Profit</FormLabel>
+                                <p className={`text-xl font-bold ${realProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ${realProfit.toFixed(2)}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Time & Client Section - Optional, at bottom */}
+                  <div className="pt-3 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between h-10"
+                      onClick={() => setTimeClientExpanded(!timeClientExpanded)}
+                    >
+                      <span className="text-sm">Optional: Time & Client</span>
+                      {timeClientExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {timeClientExpanded && (
+                      <div className="space-y-3 mt-3 pl-2 border-l-2">
                         <FormField
                           control={form.control}
                           name="start_time"
                           render={({ field }) => (
                             <FormItem className="flex flex-col">
-                              <FormLabel className="text-base">Date & Time</FormLabel>
+                              <FormLabel className="text-sm">Date & Time</FormLabel>
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <FormControl>
                                     <Button
                                       variant="outline"
-                                      className="w-full h-12 pl-3 text-left font-normal text-base"
+                                      className="w-full h-10 pl-3 text-left font-normal text-sm"
                                     >
                                       {field.value ? (
                                         format(field.value, 'PPP HH:mm')
                                       ) : (
                                         <span>Pick a date and time</span>
                                       )}
-                                      <CalendarIcon className="ml-auto h-5 w-5 opacity-50" />
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                   </FormControl>
                                 </PopoverTrigger>
@@ -1098,7 +1622,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                 </PopoverContent>
                               </Popover>
                               {form.watch('end_time') && (
-                                <p className="text-sm text-muted-foreground mt-2">
+                                <p className="text-xs text-muted-foreground mt-1">
                                   Ends: {format(form.watch('end_time')!, 'HH:mm')}
                                 </p>
                               )}
@@ -1116,7 +1640,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                             
                             return (
                               <FormItem>
-                                <FormLabel className="text-base">Client</FormLabel>
+                                <FormLabel className="text-sm">Client</FormLabel>
                                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                                   <PopoverTrigger asChild>
                                     <FormControl>
@@ -1124,7 +1648,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                         variant="outline"
                                         role="combobox"
                                         aria-expanded={popoverOpen}
-                                        className="w-full h-12 justify-between text-base"
+                                        className="w-full h-10 justify-between text-sm"
                                         type="button"
                                       >
                                         {field.value === 'new' 
@@ -1193,14 +1717,14 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                         
                         {/* Client Fields - Show only for new clients */}
                         {clientId === 'new' && (
-                          <div className="space-y-4 pt-2">
+                          <div className="space-y-3 pt-2">
                             <Button
                               type="button"
                               variant="outline"
-                              className="w-full justify-between h-11"
+                              className="w-full justify-between h-10"
                               onClick={() => setClientDetailsExpanded(!clientDetailsExpanded)}
                             >
-                              <span>Client Details</span>
+                              <span className="text-sm">Client Details</span>
                               {clientDetailsExpanded ? (
                                 <ChevronUp className="h-4 w-4" />
                               ) : (
@@ -1208,18 +1732,18 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                               )}
                             </Button>
                             {clientDetailsExpanded && (
-                              <div className="space-y-4">
+                              <div className="space-y-3">
                                 <FormField
                                   control={form.control}
                                   name="client_name"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel className="text-base">Name</FormLabel>
+                                      <FormLabel className="text-sm">Name</FormLabel>
                                       <FormControl>
                                         <Input 
                                           {...field} 
                                           placeholder="Client name"
-                                          className="h-11 text-base"
+                                          className="h-10 text-sm"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1231,12 +1755,12 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   name="client_phone"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel className="text-base">Phone</FormLabel>
+                                      <FormLabel className="text-sm">Phone</FormLabel>
                                       <FormControl>
                                         <Input 
                                           {...field} 
                                           placeholder="Phone number"
-                                          className="h-11 text-base"
+                                          className="h-10 text-sm"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1248,13 +1772,13 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   name="client_source"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel className="text-base">Source</FormLabel>
+                                      <FormLabel className="text-sm">Source</FormLabel>
                                       <Select
                                         onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
                                         value={field.value || 'none'}
                                       >
                                         <FormControl>
-                                          <SelectTrigger className="h-11 text-base">
+                                          <SelectTrigger className="h-10 text-sm">
                                             <SelectValue placeholder="Select source" />
                                           </SelectTrigger>
                                         </FormControl>
@@ -1275,12 +1799,12 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   name="client_notes"
                                   render={({ field }) => (
                                     <FormItem>
-                                      <FormLabel className="text-base">Notes</FormLabel>
+                                      <FormLabel className="text-sm">Notes</FormLabel>
                                       <FormControl>
                                         <Textarea 
                                           {...field} 
                                           placeholder="Client notes"
-                                          className="text-base min-h-[100px]"
+                                          className="text-sm min-h-[80px]"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1291,387 +1815,40 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                             )}
                           </div>
                         )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
 
-              {/* Step 2: Services */}
-              {currentStep === 2 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Scissors className="h-5 w-5" />
-                    Services
-                  </h2>
-                  <div className="space-y-4">
-                        {/* Service Chips */}
-                        <div>
-                          <FormLabel className="text-base mb-3 block">Select Services</FormLabel>
-                          <div className="flex flex-wrap gap-2">
-                            {services.map((service) => {
-                              const isSelected = serviceItems.some(item => item.service_id === service.id)
-                              return (
-                                <Badge
-                                  key={service.id}
-                                  variant={isSelected ? "default" : "outline"}
-                                  className="h-11 px-4 text-base cursor-pointer hover:bg-primary/90 transition-colors"
-                                  onClick={() => {
-                                    if (isSelected) {
-                                      const item = serviceItems.find(item => item.service_id === service.id)
-                                      if (item?.id) {
-                                        removeServiceItem(item.id)
-                                      }
-                                    } else {
-                                      addServiceByChip(service.id)
-                                    }
-                                  }}
-                                >
-                                  {service.name}
-                                  {service.duration_minutes > 0 && (
-                                    <span className="ml-1 text-xs opacity-75">({service.duration_minutes}m)</span>
-                                  )}
-                                </Badge>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Selected Services */}
-                        {serviceItems.filter(item => item.service_id).length > 0 && (
-                          <div className="space-y-3 pt-4 border-t">
-                            <FormLabel className="text-base">Selected Services</FormLabel>
-                            {serviceItems.filter(item => item.service_id).map((item, index) => {
-                              const actualIndex = serviceItems.findIndex(si => si.id === item.id)
-                              const selectedService = services.find(s => s.id === item.service_id)
-                              return (
-                                <div key={item.id || index} className="p-3 border rounded-lg space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium">{selectedService?.name}</p>
-                                      {selectedService && (
-                                        <p className="text-sm text-muted-foreground">
-                                          {selectedService.duration_minutes} min
-                                        </p>
-                                      )}
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => removeServiceItem(item.id)}
-                                      className="h-9 w-9"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <FormField
-                                    control={form.control}
-                                    name={`service_items.${actualIndex}.price`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel className="text-sm">Price</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={field.value === null || field.value === undefined ? '' : field.value}
-                                            onChange={(e) => {
-                                              const value = e.target.value
-                                              field.onChange(value === '' ? '' : value)
-                                            }}
-                                            onBlur={(e) => {
-                                              const value = e.target.value
-                                              field.onBlur()
-                                              if (value === '') {
-                                                field.onChange(null)
-                                              } else {
-                                                const numValue = parseFloat(value)
-                                                field.onChange(isNaN(numValue) ? null : numValue)
-                                              }
-                                            }}
-                                            onFocus={(e) => e.target.select()}
-                                            disabled={isModel || !item.service_id}
-                                            className={isModel || !item.service_id ? 'opacity-50' : 'h-10'}
-                                            placeholder="0.00"
-                                            name={field.name}
-                                            ref={field.ref}
-                                          />
-                                        </FormControl>
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-
-                        {/* Model Session */}
-                        <FormField
-                          control={form.control}
-                          name="is_model"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Model Session</FormLabel>
-                                <p className="text-sm text-muted-foreground">Set service prices to 0</p>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={(checked) => {
-                                    field.onChange(checked)
-                                    handleModelToggle(checked)
-                                  }}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Products */}
-              {currentStep === 3 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Scissors className="h-5 w-5" />
-                    Products
-                  </h2>
-                  <div className="space-y-4">
-                        {/* Most Used Products Chips */}
-                        {mostUsedProducts.length > 0 && (
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <FormLabel className="text-base">Most Used</FormLabel>
-                              <ProductForm onSuccess={handleProductCreated}>
-                                <Button type="button" variant="outline" size="sm" className="h-9">
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Create Product
-                                </Button>
-                              </ProductForm>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {mostUsedProducts.map((product) => {
-                                const selectedItem = productItems.find(item => item.product_id === product.id)
-                                return (
-                                  <Badge
-                                    key={product.id}
-                                    variant={selectedItem ? "default" : "outline"}
-                                    className="h-11 px-4 text-base cursor-pointer hover:bg-primary/90 transition-colors max-w-[462px]"
-                                    onClick={() => addProductByChip(product.id)}
-                                  >
-                                    <div className="flex items-center gap-2 w-full min-w-0">
-                                      <span className="truncate flex-1 min-w-0">{product.name}</span>
-                                      {product.sku && (
-                                        <span className="text-xs opacity-60">({product.sku})</span>
-                                      )}
-                                      <span className="text-xs opacity-75">${product.sale_price.toFixed(2)}</span>
-                                      {selectedItem && (
-                                        <span className="text-xs opacity-75">x{selectedItem.qty}</span>
-                                      )}
-                                    </div>
-                                  </Badge>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All Products Search */}
-                        <div className="pt-4 border-t">
-                          <FormLabel className="text-base mb-3 block">Search All Products</FormLabel>
-                          <Drawer open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                            <DrawerTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full h-12 justify-between text-base"
-                                type="button"
-                              >
-                                <span>Search or add product...</span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </DrawerTrigger>
-                            <DrawerContent className="max-h-[90vh]">
-                              <DrawerHeader className="pb-2">
-                                <DrawerTitle>Search Products</DrawerTitle>
-                                <DrawerDescription>Browse by name or SKU</DrawerDescription>
-                              </DrawerHeader>
-                              <div className="p-4 pt-0 flex-1 overflow-y-auto min-h-0">
-                                <div className="rounded-md border bg-background h-full">
-                                  <Command className="h-full">
-                                    <CommandInput 
-                                      placeholder="Search products by name or SKU..." 
-                                      autoFocus
-                                      data-product-search-input
-                                    />
-                                    <CommandList className="max-h-[60vh]">
-                                      <CommandEmpty>No product found.</CommandEmpty>
-                                      <CommandGroup>
-                                        {products.map((product) => (
-                                          <CommandItem
-                                            key={product.id}
-                                            value={`${product.name}${product.sku ? ` ${product.sku}` : ''}`}
-                                            keywords={[product.id, product.name, product.sku || ''].filter(Boolean)}
-                                            onSelect={() => {
-                                              addProductByChip(product.id)
-                                              setProductSearchOpen(false)
-                                            }}
-                                          >
-                                            <div className="flex items-center justify-between w-full">
-                                              <div>
-                                                <span>{product.name}</span>
-                                                {product.sku && (
-                                                  <span className="ml-2 text-xs text-muted-foreground">SKU: {product.sku}</span>
-                                                )}
-                                              </div>
-                                              <span className="ml-auto text-sm text-muted-foreground">${product.sale_price.toFixed(2)}</span>
-                                            </div>
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </div>
-                              </div>
-                            </DrawerContent>
-                          </Drawer>
-                        </div>
-
-                        {/* Selected Products */}
-                        {productItems.filter(item => item.product_id).length > 0 && (
-                          <div className="space-y-3 pt-4 border-t">
-                            <FormLabel className="text-base">Selected Products</FormLabel>
-                            {productItems.filter(item => item.product_id).map((item, index) => {
-                              const actualIndex = productItems.findIndex(ei => ei.id === item.id)
-                              const selectedProduct = products.find(e => e.id === item.product_id)
-                              return (
-                                <div key={item.id || index} className="p-3 border rounded-lg space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium">{selectedProduct?.name}</p>
-                                      {selectedProduct && (
-                                        <>
-                                          {selectedProduct.sku && (
-                                            <p className="text-xs text-muted-foreground">SKU: {selectedProduct.sku}</p>
-                                          )}
-                                          <p className="text-sm text-muted-foreground">
-                                            ${selectedProduct.sale_price.toFixed(2)} each
-                                          </p>
-                                        </>
-                                      )}
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => removeProductItem(item.id)}
-                                      className="h-9 w-9"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <FormField
-                                      control={form.control}
-                                      name={`product_items.${actualIndex}.qty`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-sm">Quantity</FormLabel>
-                                          <FormControl>
-                                            <Input
-                                              type="number"
-                                              min="1"
-                                              value={field.value === null || field.value === undefined ? '' : field.value}
-                                              onChange={(e) => {
-                                                const value = e.target.value
-                                                field.onChange(value === '' ? '' : value)
-                                              }}
-                                              onBlur={(e) => {
-                                                const value = e.target.value
-                                                field.onBlur()
-                                                if (value === '') {
-                                                  field.onChange(undefined)
-                                                } else {
-                                                  const numValue = parseInt(value, 10)
-                                                  field.onChange(isNaN(numValue) || numValue < 1 ? 1 : numValue)
-                                                }
-                                              }}
-                                              onFocus={(e) => e.target.select()}
-                                              className="h-10"
-                                              name={field.name}
-                                              ref={field.ref}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-                                    <FormField
-                                      control={form.control}
-                                      name={`product_items.${actualIndex}.price`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-sm">Price</FormLabel>
-                                          <FormControl>
-                                            <Input
-                                              type="number"
-                                              step="0.01"
-                                              value={field.value === null || field.value === undefined ? '' : field.value}
-                                              onChange={(e) => {
-                                                const value = e.target.value
-                                                field.onChange(value === '' ? '' : value)
-                                              }}
-                                              onBlur={(e) => {
-                                                const value = e.target.value
-                                                field.onBlur()
-                                                if (value === '') {
-                                                  field.onChange(null)
-                                                } else {
-                                                  const numValue = parseFloat(value)
-                                                  field.onChange(isNaN(numValue) ? null : numValue)
-                                                }
-                                              }}
-                                              onFocus={(e) => e.target.select()}
-                                              className="h-10"
-                                              placeholder={selectedProduct ? selectedProduct.sale_price.toFixed(2) : "0.00"}
-                                              name={field.name}
-                                              ref={field.ref}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Payment */}
-              {currentStep === 4 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Payment
-                  </h2>
-                  <div className="space-y-4">
+                  {/* Payment Section - Optional, at very bottom */}
+                  <div className="pt-3 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between h-10"
+                      onClick={() => setPaymentExpanded(!paymentExpanded)}
+                    >
+                      <span className="text-sm">Optional: Payment Settings</span>
+                      {paymentExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {paymentExpanded && (
+                      <div className="space-y-3 mt-3 pl-2 border-l-2">
                         {/* Payment Method */}
                         <FormField
                           control={form.control}
                           name="payment_method"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-base mb-3 block">Payment Method</FormLabel>
+                              <FormLabel className="text-sm mb-2 block">Payment Method</FormLabel>
                               <FormControl>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-3 gap-2">
                                   <Button
                                     type="button"
                                     variant={field.value === 'cash' ? 'default' : 'outline'}
-                                    className="h-14 text-base"
+                                    className="h-10 text-sm"
                                     onClick={() => field.onChange('cash')}
                                   >
                                     Cash
@@ -1679,7 +1856,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   <Button
                                     type="button"
                                     variant={field.value === 'blik' ? 'default' : 'outline'}
-                                    className="h-14 text-base"
+                                    className="h-10 text-sm"
                                     onClick={() => field.onChange('blik')}
                                   >
                                     Personal BLIK
@@ -1687,7 +1864,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   <Button
                                     type="button"
                                     variant={field.value === 'card' ? 'default' : 'outline'}
-                                    className="h-14 text-base"
+                                    className="h-10 text-sm"
                                     onClick={() => field.onChange('card')}
                                   >
                                     Card
@@ -1704,10 +1881,10 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                           control={form.control}
                           name="tax_enabled"
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">Tax (8.5%)</FormLabel>
-                                <p className="text-sm text-muted-foreground">Apply tax to payment</p>
+                                <FormLabel className="text-sm">Tax (8.5%)</FormLabel>
+                                <p className="text-xs text-muted-foreground">Apply tax to payment</p>
                               </div>
                               <FormControl>
                                 <Switch
@@ -1724,11 +1901,11 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                           control={form.control}
                           name="booksy_fee_enabled"
                           render={({ field }) => (
-                            <FormItem className="space-y-3">
-                              <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <FormItem className="space-y-2">
+                              <div className="flex flex-row items-center justify-between rounded-lg border p-3">
                                 <div className="space-y-0.5">
-                                  <FormLabel className="text-base">Booksy Fee</FormLabel>
-                                  <p className="text-sm text-muted-foreground">43.05% of base amount</p>
+                                  <FormLabel className="text-sm">Booksy Fee</FormLabel>
+                                  <p className="text-xs text-muted-foreground">43.05% of base amount</p>
                                 </div>
                                 <FormControl>
                                   <Switch
@@ -1743,7 +1920,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                   name="booksy_fee_base"
                                   render={({ field: baseField }) => (
                                     <FormItem>
-                                      <FormLabel className="text-sm">Base Amount</FormLabel>
+                                      <FormLabel className="text-xs">Base Amount</FormLabel>
                                       <FormControl>
                                         <Input
                                           type="number"
@@ -1764,7 +1941,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                                             }
                                           }}
                                           onFocus={(e) => e.target.select()}
-                                          className="h-10"
+                                          className="h-9"
                                           placeholder="0.00"
                                           name={baseField.name}
                                           ref={baseField.ref}
@@ -1778,151 +1955,8 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                             </FormItem>
                           )}
                         />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 5: Totals */}
-              {currentStep === 5 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Totals
-                  </h2>
-                  <div className="space-y-4">
-                        {/* Revenue Breakdown */}
-                        <div>
-                          <p className="text-base font-semibold mb-3">Revenue</p>
-                          <div className="space-y-2 pl-2">
-                            {Number(totalServicePrice) > 0 && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Service Revenue</p>
-                                <p className="text-sm font-medium">${Number(totalServicePrice).toFixed(2)}</p>
-                              </div>
-                            )}
-                            {productRevenue > 0 && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Product Revenue</p>
-                                <p className="text-sm font-medium">${Number(productRevenue).toFixed(2)}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Costs Breakdown */}
-                        <div className="border-t pt-3 mt-3">
-                          <p className="text-base font-semibold mb-3">Costs</p>
-                          <div className="space-y-2 pl-2">
-                            {productCost > 0 && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Product Cost</p>
-                                <p className="text-sm font-medium">${productCost.toFixed(2)}</p>
-                              </div>
-                            )}
-                            {booksyFeeEnabled && booksyFee && Number(booksyFee) > 0 && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Booksy Fee</p>
-                                <p className="text-sm font-medium">${Number(booksyFee).toFixed(2)}</p>
-                              </div>
-                            )}
-                            {brokenProductEnabled && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Broken Product Loss</p>
-                                <p className="text-sm font-medium">${Number(brokenProductLoss || 0).toFixed(2)}</p>
-                              </div>
-                            )}
-                            {taxEnabled && taxAmount && taxAmount > 0 && (
-                              <div className="flex justify-between">
-                                <p className="text-sm text-muted-foreground">Tax (8.5%)</p>
-                                <p className="text-sm font-medium">${taxAmount.toFixed(2)}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Totals */}
-                        <div className="border-t pt-4 mt-4 space-y-4">
-                          {revenue > 0 && (
-                            <div className="flex justify-between items-center">
-                              <p className="text-base font-semibold">To Pay</p>
-                              <p className="text-2xl font-bold">${revenue.toFixed(2)}</p>
-                            </div>
-                          )}
-                          <FormField
-                            control={form.control}
-                            name="total_paid"
-                            render={({ field }) => (
-                              <FormItem>
-                                <div className="flex justify-between items-center">
-                                  <FormLabel className="text-base font-semibold">Total Paid</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={field.value === null || field.value === undefined ? '' : field.value}
-                                      onChange={(e) => {
-                                        const value = e.target.value
-                                        if (value === '') {
-                                          field.onChange(null)
-                                        } else {
-                                          const numValue = parseFloat(value)
-                                          field.onChange(isNaN(numValue) ? null : numValue)
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        const value = e.target.value
-                                        field.onBlur()
-                                        if (value === '') {
-                                          field.onChange(null)
-                                        } else {
-                                          const numValue = parseFloat(value)
-                                          field.onChange(isNaN(numValue) ? null : numValue)
-                                        }
-                                      }}
-                                      onFocus={(e) => e.target.select()}
-                                      placeholder="0.00"
-                                      className="text-xl font-bold h-12 w-40 text-right"
-                                      name={field.name}
-                                      ref={field.ref}
-                                    />
-                                  </FormControl>
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          {(totalPaidAmount > 0 || revenue > 0) && (
-                            <>
-                              {profitsAreEqual ? (
-                                <div className="flex justify-between items-center">
-                                  <p className="text-base font-semibold">Profit</p>
-                                  <p className={`text-2xl font-bold ${realProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                    ${realProfit.toFixed(2)}
-                                  </p>
-                                </div>
-                              ) : (
-                                <>
-                                  {revenue > 0 && (
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-base font-semibold">Projected Profit</p>
-                                      <p className={`text-lg font-semibold ${projectedProfit < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                        ${projectedProfit.toFixed(2)}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {totalPaidAmount > 0 && (
-                                    <div className="flex justify-between items-center">
-                                      <p className="text-base font-semibold">Real Profit</p>
-                                      <p className={`text-2xl font-bold ${realProfit < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ${realProfit.toFixed(2)}
-                                      </p>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1930,7 +1964,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
           </form>
         </Form>
         
-        <DialogFooter className="bg-background px-4 sm:px-6 py-3 rounded-b-lg border-t flex flex-col sm:flex-row gap-3">
+        <DialogFooter className="bg-background px-3 sm:px-4 py-3 rounded-b-lg border-t flex flex-col sm:flex-row gap-3">
           {currentStep > 1 && (
             <Button
               type="button"
@@ -1944,7 +1978,7 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
             </Button>
           )}
           <div className="flex gap-3 flex-1 sm:flex-initial sm:ml-auto">
-            {currentStep < 5 ? (
+            {currentStep < 3 ? (
               <Button 
                 type="button"
                 onClick={(e) => {
@@ -2013,9 +2047,9 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
                       } else {
                         // Scroll to the step with the error
                         if (firstErrorPath.startsWith('product_items')) {
-                          setCurrentStep(3)
-                        } else if (firstErrorPath.startsWith('service_items')) {
                           setCurrentStep(2)
+                        } else if (firstErrorPath.startsWith('service_items')) {
+                          setCurrentStep(1)
                         } else if (firstErrorPath.startsWith('client')) {
                           setCurrentStep(1)
                         }

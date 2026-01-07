@@ -29,6 +29,7 @@ export interface Product {
   sale_price: number;
   sold_qty: number;
   active: boolean;
+  starred?: boolean;
   created_at: string;
 }
 

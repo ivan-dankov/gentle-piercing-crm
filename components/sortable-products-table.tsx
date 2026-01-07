@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { createClient } from '@/lib/supabase/client'
 import type { Product } from '@/lib/types'
-import { Trash2, ToggleLeft, ToggleRight, Search, X } from 'lucide-react'
+import { Trash2, ToggleLeft, ToggleRight, Search, X, Star } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -203,6 +204,23 @@ export function SortableProductsTable({ products }: SortableProductsTableProps) 
     }
   }
 
+  const handleToggleStarred = async (productId: string, currentStarred: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        // @ts-expect-error - Supabase types issue
+        .update({ starred: !currentStarred })
+        .eq('id', productId)
+      
+      if (error) throw error
+      
+      router.refresh()
+    } catch (error) {
+      console.error('Error toggling starred:', error)
+      alert('Failed to update product')
+    }
+  }
+
   return (
     <>
       {/* Filters */}
@@ -345,10 +363,25 @@ export function SortableProductsTable({ products }: SortableProductsTableProps) 
                         <p className="text-sm text-muted-foreground">{product.category}</p>
                       )}
                     </div>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={(checked) => handleSelectOne(product.id, checked as boolean)}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleToggleStarred(product.id, product.starred || false)}
+                      >
+                        <Star
+                          className={cn(
+                            "h-4 w-4",
+                            product.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                          )}
+                        />
+                      </Button>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectOne(product.id, checked as boolean)}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
@@ -393,6 +426,7 @@ export function SortableProductsTable({ products }: SortableProductsTableProps) 
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
+              <TableHead className="w-12"></TableHead>
               <SortableTableHeader
                 sortKey="sku"
                 currentSortKey={sortKey}
@@ -463,6 +497,21 @@ export function SortableProductsTable({ products }: SortableProductsTableProps) 
                       checked={isSelected}
                       onCheckedChange={(checked) => handleSelectOne(product.id, checked as boolean)}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleToggleStarred(product.id, product.starred || false)}
+                    >
+                      <Star
+                        className={cn(
+                          "h-4 w-4",
+                          product.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                        )}
+                      />
+                    </Button>
                   </TableCell>
                   <TableCell>{product.sku || '-'}</TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>

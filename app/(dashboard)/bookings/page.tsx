@@ -43,10 +43,12 @@ export default async function BookingsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-        <h1 className="text-2xl sm:text-3xl font-bold">Bookings</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+          Bookings
+        </h1>
         <BookingForm>
-          <Button size="sm" className="text-xs sm:text-sm">
+          <Button size="sm" className="text-xs sm:text-sm shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">New Booking</span>
             <span className="sm:hidden">New</span>
