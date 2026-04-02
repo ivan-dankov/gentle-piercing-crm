@@ -16,6 +16,8 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { BookingForm } from '@/components/booking-form'
 import { Button } from '@/components/ui/button'
+import { RevenueChart } from '@/components/revenue-chart'
+import type { ChartBooking, ChartAdditionalCost } from '@/components/revenue-chart'
 
 export const dynamic = 'force-dynamic'
 
@@ -375,6 +377,24 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Revenue / Costs / Profit Chart */}
+      <RevenueChart
+        bookings={bookingsData.map((b: any): ChartBooking => ({
+          start_time: b.start_time,
+          total_paid: b.total_paid ?? 0,
+          earring_cost: b.earring_cost ?? 0,
+          travel_fee: b.travel_fee ?? 0,
+          booksy_fee: b.booksy_fee ?? 0,
+          broken_earring_loss: b.broken_earring_loss ?? 0,
+          tax_amount: b.tax_amount ?? 0,
+          profit: b.profit ?? 0,
+        }))}
+        additionalCosts={additionalCostsData.map((c: any): ChartAdditionalCost => ({
+          date: c.date,
+          amount: c.amount ?? 0,
+        }))}
+      />
 
       {/* Costs Breakdown */}
       <Card className="hover:shadow-md transition-shadow">
