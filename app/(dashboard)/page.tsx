@@ -48,82 +48,95 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     }
   }
 
+  // Regenerate fresh dates for a named preset relative to today in the user's timezone.
+  // This prevents stale from/to values (e.g. "thisMonth" stored on April 2 being used on April 10).
+  function resolveDatesForPreset(preset: string): { from: string; to: string } | null {
+    const todayStr = getTodayInTimezone(timezone)
+    const [year, month, day] = todayStr.split('-').map(Number)
+    const todayInTz = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
+
+    let presetDates: { from: Date; to: Date } | null = null
+    switch (preset) {
+      case 'today':
+        presetDates = { from: startOfDay(todayInTz), to: endOfDay(todayInTz) }
+        break
+      case 'yesterday': {
+        const yesterday = subDays(todayInTz, 1)
+        presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
+        break
+      }
+      case 'thisWeek':
+        presetDates = { from: startOfWeek(todayInTz, { weekStartsOn: 1 }), to: endOfWeek(todayInTz, { weekStartsOn: 1 }) }
+        break
+      case 'lastWeek': {
+        const lastWeek = subWeeks(todayInTz, 1)
+        presetDates = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) }
+        break
+      }
+      case 'last7days':
+        presetDates = { from: startOfDay(subDays(todayInTz, 6)), to: endOfDay(todayInTz) }
+        break
+      case 'last30days':
+        presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
+        break
+      case 'thisMonth': {
+        const thisMonthFirst = getMonthBoundsInTimezone(year, month, timezone).from
+        presetDates = { from: thisMonthFirst, to: endOfDay(todayInTz) }
+        break
+      }
+      case 'lastMonth': {
+        const lastMonthNum = month === 1 ? 12 : month - 1
+        const lastMonthYear = month === 1 ? year - 1 : year
+        presetDates = getMonthBoundsInTimezone(lastMonthYear, lastMonthNum, timezone)
+        break
+      }
+      case 'thisYear':
+        presetDates = { from: startOfYear(todayInTz), to: endOfDay(todayInTz) }
+        break
+    }
+
+    if (!presetDates) return null
+    return {
+      from: dateToCalendarISOString(presetDates.from),
+      to: dateToCalendarISOStringEnd(presetDates.to),
+    }
+  }
+
   // Get date range from URL params or cookie (for server-side rendering)
   let fromParam = params.from || null
   let toParam = params.to || null
-  
-  // If no URL params, try reading from cookie
-  if (!fromParam || !toParam) {
+
+  // If a named preset is in the URL, always regenerate dates fresh from today —
+  // the from/to in the URL are stale (they were computed when the user last clicked the preset).
+  const relativePresets = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear']
+  if (params.preset && relativePresets.includes(params.preset)) {
+    const resolved = resolveDatesForPreset(params.preset)
+    if (resolved) {
+      fromParam = resolved.from
+      toParam = resolved.to
+    }
+  } else if (!fromParam || !toParam) {
+    // No usable URL params — fall back to cookie
     try {
       const dateRangeCookie = cookieStore.get('dashboard-date-range')
       if (dateRangeCookie?.value) {
         const cookieData = JSON.parse(decodeURIComponent(dateRangeCookie.value))
-        
-        // If preset is "allTime", we don't need dates (show all data)
+
         if (cookieData.preset === 'allTime') {
           fromParam = null
           toParam = null
-        } else if (cookieData.preset && ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear'].includes(cookieData.preset)) {
-          // For presets, regenerate dates on server side (dates in cookie might be stale)
-          // This ensures "today" always means today, not the day it was last selected
-          // Get "today" in the user's timezone to ensure correct month calculations
-          const todayStr = getTodayInTimezone(timezone)
-          const [year, month, day] = todayStr.split('-').map(Number)
-          // Create a date at noon in the user's timezone to avoid DST issues
-          const todayInTz = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
-          
-          let presetDates: { from: Date; to: Date } | null = null
-          switch (cookieData.preset) {
-            case 'today':
-              presetDates = { from: startOfDay(todayInTz), to: endOfDay(todayInTz) }
-              break
-            case 'yesterday':
-              const yesterday = subDays(todayInTz, 1)
-              presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
-              break
-            case 'thisWeek':
-              presetDates = { from: startOfWeek(todayInTz, { weekStartsOn: 1 }), to: endOfWeek(todayInTz, { weekStartsOn: 1 }) }
-              break
-            case 'lastWeek':
-              const lastWeek = subWeeks(todayInTz, 1)
-              presetDates = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) }
-              break
-            case 'last7days':
-              presetDates = { from: startOfDay(subDays(todayInTz, 6)), to: endOfDay(todayInTz) }
-              break
-            case 'last30days':
-              presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
-              break
-            case 'thisMonth':
-              // This month: from 1st of current month to today
-              const thisMonthFirst = getMonthBoundsInTimezone(year, month, timezone).from
-              presetDates = { from: thisMonthFirst, to: endOfDay(todayInTz) }
-              break
-            case 'lastMonth':
-              // Calculate last month in the user's timezone
-              const lastMonthNum = month === 1 ? 12 : month - 1
-              const lastMonthYear = month === 1 ? year - 1 : year
-              presetDates = getMonthBoundsInTimezone(lastMonthYear, lastMonthNum, timezone)
-              break
-            case 'thisYear':
-              presetDates = { from: startOfYear(todayInTz), to: endOfDay(todayInTz) }
-              break
-          }
-          
-          if (presetDates) {
-            // Convert to calendar ISO strings for consistency
-            // Use start of day for "from" and end of day for "to" to ensure full day coverage
-            fromParam = dateToCalendarISOString(presetDates.from)
-            toParam = dateToCalendarISOStringEnd(presetDates.to)
+        } else if (cookieData.preset && relativePresets.includes(cookieData.preset)) {
+          const resolved = resolveDatesForPreset(cookieData.preset)
+          if (resolved) {
+            fromParam = resolved.from
+            toParam = resolved.to
           }
         } else if (cookieData.from && cookieData.to) {
-          // Custom date range - use stored dates
           fromParam = cookieData.from
           toParam = cookieData.to
         }
       }
     } catch (error) {
-      // Ignore cookie parsing errors
       console.error('Failed to parse date range cookie:', error)
     }
   }
