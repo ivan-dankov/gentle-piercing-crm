@@ -5,6 +5,9 @@
 -- Services looked up by base_price
 -- Products looked up by SKU + closest sale_price (picks single vs pair correctly)
 -- "Бижутерия" / "Бижутерия Али" looked up by name with price override
+-- Fixed SKUs: 191→191C, 187с→187C, 57с→57C, 1230с→K1230C, 25с1→25C1,
+--   unicorn→K010C, k1229→K1229C, к1223с→K1223C, 848s-2→848S-2, 176с→176C, 174с→174C
+-- Note: SKUs 37, 37c, 598с have no matching product in DB — silently skipped
 -- Re-runnable: cleans up previous [batch-import-2026-03] tagged bookings first
 
 DO $$
@@ -42,7 +45,7 @@ BEGIN
   VALUES (350, 'cash', '2026-03-27 10:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '191' ORDER BY ABS(sale_price - 180) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '191C' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -54,7 +57,7 @@ BEGIN
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 280, v_uid); END IF;
   SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '896-3' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
-  SELECT id, sale_price INTO v_pid, v_price FROM products WHERE user_id = v_uid AND sku = '33' LIMIT 1;
+  SELECT id, sale_price INTO v_pid, v_price FROM products WHERE user_id = v_uid AND sku = '33' ORDER BY ABS(sale_price - 90) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, v_price, v_uid); END IF;
   SELECT id, sale_price INTO v_pid, v_price FROM products WHERE user_id = v_uid AND sku = '37' LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, v_price, v_uid); END IF;
@@ -72,7 +75,7 @@ BEGIN
   VALUES (300, 'cash', '2026-03-27 13:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187с' ORDER BY ABS(sale_price - 150) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187C' ORDER BY ABS(sale_price - 150) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 150, v_uid); END IF;
 
   -- ── BOOKING 5 | 2026-03-27 | Svc 450 + SKU 32 @ 160 (pair) + Spray 20 = 630
@@ -105,7 +108,7 @@ BEGIN
   VALUES (310, 'cash', '2026-03-27 12:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '57с' ORDER BY ABS(sale_price - 160) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '57C' ORDER BY ABS(sale_price - 160) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 160, v_uid); END IF;
 
   -- ── BOOKING 9 | 2026-03-27 | Svc 90 + Svc 260 + SKU 10 @ 85 + SKU 54 @ 160 (pair) + Spray 20 = 615
@@ -140,7 +143,7 @@ BEGIN
   VALUES (340, 'cash', '2026-03-27 11:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '1230с' ORDER BY ABS(sale_price - 170) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'K1230C' ORDER BY ABS(sale_price - 170) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 170, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -180,7 +183,7 @@ BEGIN
   VALUES (310, 'cash', '2026-03-27 10:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '25с1' ORDER BY ABS(sale_price - 160) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '25C1' ORDER BY ABS(sale_price - 160) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 160, v_uid); END IF;
 
   -- ── BOOKING 17 | 2026-03-27 | Svc 100 + Svc 150 + SKU unicorn @ 170 + Spray 20 = 440  [прокол носа]
@@ -190,7 +193,7 @@ BEGIN
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 100, v_uid); END IF;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'unicorn' ORDER BY ABS(sale_price - 170) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'K010C' ORDER BY ABS(sale_price - 170) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 170, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -218,7 +221,7 @@ BEGIN
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 70, v_uid); END IF;
   SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '181' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'k1229' ORDER BY ABS(sale_price - 170) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'K1229C' ORDER BY ABS(sale_price - 170) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 170, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 2, 20, v_uid);
 
@@ -227,7 +230,7 @@ BEGIN
   VALUES (410, 'cash', '2026-03-27 14:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'к1223с' ORDER BY ABS(sale_price - 170) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = 'K1223C' ORDER BY ABS(sale_price - 170) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 170, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
   IF v_bij IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_bij, 1, 70, v_uid); END IF;
@@ -257,7 +260,7 @@ BEGIN
     INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid);
     INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid);
   END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187с' ORDER BY ABS(sale_price - 150) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187C' ORDER BY ABS(sale_price - 150) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 150, v_uid); END IF;
   SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '14' ORDER BY ABS(sale_price - 120) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 120, v_uid); END IF;
@@ -287,7 +290,7 @@ BEGIN
   VALUES (330, 'cash', '2026-03-27 10:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '848s-2' ORDER BY ABS(sale_price - 180) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '848S-2' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
 
   -- ── BOOKING 28 | 2026-03-27 | Svc 150 + Svc 30 + SKU 54 @ 80 (single) + SKU 53 @ 80 + Spray 20 + Бижутерия @ 80 = 440  [даунсайз]
@@ -309,7 +312,7 @@ BEGIN
   VALUES (320, 'cash', '2026-03-27 12:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187с' ORDER BY ABS(sale_price - 150) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '187C' ORDER BY ABS(sale_price - 150) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 150, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -363,7 +366,7 @@ BEGIN
   VALUES (300, 'cash', '2026-03-27 13:00:00+01', 'восстановление каналов', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 100 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 100, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '176с' ORDER BY ABS(sale_price - 180) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '176C' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -372,7 +375,7 @@ BEGIN
   VALUES (330, 'cash', '2026-03-27 14:00:00+01', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 150 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 150, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '25с1' ORDER BY ABS(sale_price - 160) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '25C1' ORDER BY ABS(sale_price - 160) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 160, v_uid); END IF;
   INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_spray, 1, 20, v_uid);
 
@@ -392,7 +395,7 @@ BEGIN
   VALUES (280, 'cash', '2026-03-27 11:00:00+01', 'замена без прокола', v_uid) RETURNING id INTO v_bid;
   SELECT id INTO v_sid FROM services WHERE user_id = v_uid AND base_price = 30 ORDER BY created_at LIMIT 1;
   IF v_sid IS NOT NULL THEN INSERT INTO booking_services (booking_id, service_id, price, user_id) VALUES (v_bid, v_sid, 30, v_uid); END IF;
-  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '174с' ORDER BY ABS(sale_price - 180) LIMIT 1;
+  SELECT id INTO v_pid FROM products WHERE user_id = v_uid AND sku = '174C' ORDER BY ABS(sale_price - 180) LIMIT 1;
   IF v_pid IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_pid, 1, 180, v_uid); END IF;
   IF v_bij IS NOT NULL THEN INSERT INTO booking_products (booking_id, product_id, qty, price, user_id) VALUES (v_bid, v_bij, 1, 70, v_uid); END IF;
 
