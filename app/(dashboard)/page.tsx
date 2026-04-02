@@ -139,6 +139,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       id,
       total_paid,
       profit,
+      earring_cost,
       travel_fee,
       booksy_fee,
       broken_earring_loss,
@@ -150,8 +151,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         price,
         product:products(
           id,
-          name,
-          cost
+          name
         )
       ),
       booking_services(
@@ -162,18 +162,9 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           id,
           name
         )
-      ),
-      booking_broken_products(
-        id,
-        qty,
-        cost,
-        product:products(
-          id,
-          name,
-          cost
-        )
       )
     `)
+    .limit(10000)
 
   if (bookingDateFilter.from) {
     bookingsQuery = bookingsQuery.gte('start_time', bookingDateFilter.from.toISOString())
@@ -220,12 +211,10 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
 
   // Calculate financial metrics
   const totalRevenue = bookingsData.reduce((sum, b: any) => sum + (b.total_paid || 0), 0) || 0
-  const totalProfitFromBookings = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
-  // Subtract additional costs from profit since they're not included in individual booking profit calculations
-  const totalProfit = totalProfitFromBookings - totalAdditionalCosts
   const totalBookings = bookingsData.length
 
-  // Calculate costs breakdown
+  // Use stored booking fields for the cost breakdown — these are the same values
+  // that were used when calculating each booking's stored profit, so the numbers reconcile.
   let totalEarringCosts = 0
   let totalTravelFees = 0
   let totalBooksyFees = 0
@@ -233,38 +222,20 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   let totalTax = 0
 
   bookingsData.forEach((booking: any) => {
-    // Product costs from booking_products
-    if (booking.booking_products && Array.isArray(booking.booking_products)) {
-      booking.booking_products.forEach((be: any) => {
-        const product = Array.isArray(be.product) ? be.product[0] : be.product
-        if (product?.cost) {
-          totalEarringCosts += (product.cost || 0) * (be.qty || 0)
-        }
-      })
-    }
-
-    // Travel fees
+    totalEarringCosts += booking.earring_cost || 0
     totalTravelFees += booking.travel_fee || 0
-
-    // Booksy fees
     totalBooksyFees += booking.booksy_fee || 0
-
-    // Broken product losses from booking_broken_products
-    if (booking.booking_broken_products && Array.isArray(booking.booking_broken_products)) {
-      booking.booking_broken_products.forEach((bbe: any) => {
-        const cost = bbe.cost || (Array.isArray(bbe.product) ? bbe.product[0]?.cost : bbe.product?.cost) || 0
-        totalBrokenEarringLosses += cost * (bbe.qty || 0)
-      })
-    } else if (booking.broken_earring_loss) {
-      // Fallback to legacy field
-      totalBrokenEarringLosses += booking.broken_earring_loss || 0
-    }
-
-    // Tax
+    totalBrokenEarringLosses += booking.broken_earring_loss || 0
     totalTax += booking.tax_amount || 0
   })
 
   const totalCosts = totalEarringCosts + totalTravelFees + totalBooksyFees + totalBrokenEarringLosses + totalTax + totalAdditionalCosts
+
+  // Stored profit = total_paid - (earring_cost + booksy_fee + broken_loss + tax).
+  // travel_fee was never subtracted from stored profit, so we subtract it here to keep
+  // Revenue - Costs = Profit consistent.
+  const totalProfitFromBookings = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
+  const totalProfit = totalProfitFromBookings - totalTravelFees - totalAdditionalCosts
 
   // Calculate averages per booking
   const avgRevenuePerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0
@@ -282,8 +253,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
           const productId = product.id
           const existing = productSalesMap.get(productId) || { name: product.name, qty: 0, revenue: 0 }
           
-          // Calculate revenue proportion based on price or estimate from total_paid
-          const revenue = be.price ? be.price * (be.qty || 0) : (booking.total_paid || 0) * 0.5 // Estimate if no price
+          const revenue = be.price ? be.price * (be.qty || 0) : 0
           
           productSalesMap.set(productId, {
             name: existing.name,
