@@ -89,29 +89,7 @@ const bookingSchema = z.object({
     product_id: z.union([z.string().uuid(), z.literal('')]),
     qty: z.number().int().min(1),
     price: z.number().min(0).nullable().optional(),
-  })).superRefine((items, ctx) => {
-    const validItems = items.filter(item => item.product_id && item.product_id.trim() !== '')
-    if (validItems.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'At least one product is required',
-        path: [],
-      })
-    }
-    // Validate each non-empty item has a valid UUID
-    items.forEach((item, index) => {
-      if (item.product_id && item.product_id.trim() !== '') {
-        const uuidResult = z.string().uuid().safeParse(item.product_id)
-        if (!uuidResult.success) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Invalid product ID',
-            path: [index, 'product_id'],
-          })
-        }
-      }
-    })
-  }),
+  })),
   service_items: z.array(z.object({
     id: z.string().optional(),
     service_id: z.union([z.string().uuid(), z.literal('')]),
@@ -335,9 +313,8 @@ export function BookingForm({ booking, defaultStartTime, children }: BookingForm
         // Services step - always valid (can have zero services)
         return true
       case 2:
-        // Products step - at least one product required
-        const productItems = form.getValues('product_items') || []
-        return productItems.some(item => item.product_id)
+        // Products step - optional
+        return true
       case 3:
         // Review & Totals step - always valid
         return true
