@@ -1,3 +1,8 @@
+import {
+  fitTelegramMessage,
+  splitTelegramMessage,
+} from '@/lib/telegram/message-limits'
+
 const TELEGRAM_API = 'https://api.telegram.org'
 
 function getToken(): string {
@@ -50,11 +55,38 @@ export async function sendMessage(
 ): Promise<{ message_id: number }> {
   return telegramRequest('sendMessage', {
     chat_id: target.chatId,
-    text,
+    text: fitTelegramMessage(text),
     parse_mode: 'HTML',
     ...threadParams(target),
     ...options,
   })
+}
+
+/** Split long HTML text into several messages; keyboard only on the last chunk */
+export async function sendLongMessage(
+  target: TelegramReplyTarget,
+  text: string,
+  options?: {
+    reply_markup?: {
+      inline_keyboard: InlineKeyboardButton[][]
+    }
+  }
+): Promise<{ message_id: number }> {
+  const chunks = splitTelegramMessage(text)
+  let last: { message_id: number } = { message_id: 0 }
+
+  for (let i = 0; i < chunks.length; i++) {
+    const isLast = i === chunks.length - 1
+    last = await telegramRequest('sendMessage', {
+      chat_id: target.chatId,
+      text: chunks[i],
+      parse_mode: 'HTML',
+      ...threadParams(target),
+      ...(isLast ? options : {}),
+    })
+  }
+
+  return last
 }
 
 export async function answerCallbackQuery(
@@ -75,7 +107,7 @@ export async function editMessageText(
   await telegramRequest('editMessageText', {
     chat_id: target.chatId,
     message_id: messageId,
-    text,
+    text: fitTelegramMessage(text),
     parse_mode: 'HTML',
     ...threadParams(target),
   })

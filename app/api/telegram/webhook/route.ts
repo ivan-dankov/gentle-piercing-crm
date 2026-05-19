@@ -16,6 +16,7 @@ import {
   answerCallbackQuery,
   confirmCancelKeyboard,
   editMessageText,
+  sendLongMessage,
   sendMessage,
   type TelegramReplyTarget,
 } from '@/lib/telegram/bot'
@@ -160,7 +161,7 @@ async function handleMessage(message: TelegramMessage) {
   const summary = formatConfirmationSummary(parsed, catalog.timezone)
 
   if (!canConfirm(parsed)) {
-    await sendMessage(
+    await sendLongMessage(
       target,
       `${summary}\n\n⚠️ Не удалось сопоставить позиции с каталогом. Исправьте сообщение или добавьте в CRM.`
     )
@@ -174,7 +175,7 @@ async function handleMessage(message: TelegramMessage) {
     ? '\n\n⚠️ Часть строк не сохранится (нет в каталоге). Подтвердите, чтобы сохранить сопоставленное.'
     : ''
 
-  await sendMessage(target, summary + warning, {
+  await sendLongMessage(target, summary + warning, {
     reply_markup: confirmCancelKeyboard(token),
   })
 }
