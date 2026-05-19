@@ -6,7 +6,6 @@ import {
   matchProduct,
   matchService,
 } from '@/lib/agent/product-matcher'
-import { resolveBookingDateString } from '@/lib/agent/booking-date'
 import { normalizeParseJson } from '@/lib/agent/normalize-parse'
 import {
   type ParseSaleResult,
@@ -49,7 +48,7 @@ function resolveBooking(
     draft.total_paid ?? serviceTotal + productTotal
 
   return {
-    booking_date: resolveBookingDateString(draft.booking_date, timezone) ?? draft.booking_date,
+    booking_date: draft.booking_date,
     services: resolvedServices,
     products: resolvedProducts,
     total_paid,
@@ -65,7 +64,8 @@ export async function parseSaleMessage(
     services: CatalogService[]
     products: CatalogProduct[]
     timezone: string
-  }
+  },
+  messageSentAt: Date
 ): Promise<ResolvedParseSaleResult> {
   const cleaned = preprocessMessage(message)
   const apiKey = process.env.OPENAI_API_KEY
@@ -127,5 +127,6 @@ export async function parseSaleMessage(
     bookings,
     unmatched_lines: parsed.unmatched_lines ?? [],
     raw_message: cleaned,
+    message_sent_at: messageSentAt.toISOString(),
   }
 }

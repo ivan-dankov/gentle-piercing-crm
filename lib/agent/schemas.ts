@@ -108,4 +108,6 @@ export interface ResolvedParseSaleResult {
   bookings: ResolvedBookingDraft[]
   unmatched_lines: string[]
   raw_message: string
+  /** When the Telegram message was sent (ISO); used as booking start_time */
+  message_sent_at: string
 }

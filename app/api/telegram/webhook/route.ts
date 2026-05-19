@@ -41,6 +41,7 @@ let menuRegistered = false
 interface TelegramMessage {
   chat: { id: number }
   text?: string
+  date: number
   message_thread_id?: number
   is_topic_message?: boolean
 }
@@ -142,14 +143,20 @@ async function handleMessage(message: TelegramMessage) {
 
   await sendMessage(target, '⏳ Разбираю сообщение…')
 
-  const parsed = await parseSaleMessage(text, {
-    services: catalog.services,
-    products: catalog.products,
-    timezone: catalog.timezone,
-  })
+  const messageSentAt = new Date(message.date * 1000)
+
+  const parsed = await parseSaleMessage(
+    text,
+    {
+      services: catalog.services,
+      products: catalog.products,
+      timezone: catalog.timezone,
+    },
+    messageSentAt
+  )
 
   if (hasUnresolvedItems(parsed)) {
-    const summary = formatConfirmationSummary(parsed)
+    const summary = formatConfirmationSummary(parsed, catalog.timezone)
     await sendMessage(
       target,
       `${summary}\n\n⚠️ Не все позиции сопоставлены с каталогом. Исправьте сообщение или добавьте в CRM.`
@@ -160,7 +167,7 @@ async function handleMessage(message: TelegramMessage) {
   const token = createSessionToken()
   await savePendingSession(chatId, threadId, userId, token, parsed)
 
-  await sendMessage(target, formatConfirmationSummary(parsed), {
+  await sendMessage(target, formatConfirmationSummary(parsed, catalog.timezone), {
     reply_markup: confirmCancelKeyboard(token),
   })
 }
@@ -216,12 +223,16 @@ async function handleCallbackQuery(
     }
 
     const catalog = await loadCatalog(userId)
+    const sentAt = pending.message_sent_at
+      ? new Date(pending.message_sent_at)
+      : new Date()
+
     const ids = await submitResolvedBookings(
       userId,
       pending.bookings,
       catalog.services,
       catalog.productCostMap,
-      catalog.timezone
+      sentAt
     )
     await deletePendingSession(chatId, threadId)
     await answerCallbackQuery(query.id, 'Сохранено')

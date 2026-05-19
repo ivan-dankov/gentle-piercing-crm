@@ -56,7 +56,7 @@ RULES:
 - Lone numbers (e.g. 150, 90) are usually SERVICE prices — match to catalog base_price when possible.
 - "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1).
 - "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия").
-- "DD.MM" alone is booking_date for the following group — European format (day.month), output as YYYY-MM-DD using year ${today.slice(0, 4)} unless DD.MM.YYYY is given.
+- "DD.MM" lines only separate booking groups (do not use for calendar date; the app uses message send time).
 - total_paid per booking = sum of service prices + product line prices unless explicitly stated otherwise.
 - Every service and product object MUST include a numeric "price" field (required).
 - booksy_fee_enabled if message mentions booksy/букси.

@@ -1,5 +1,3 @@
-import { resolveBookingDateString } from '@/lib/agent/booking-date'
-
 /** Coerce OpenAI JSON numbers (string, null, missing) */
 export function coerceNum(v: unknown): number | undefined {
   if (v == null || v === '') return undefined
@@ -35,7 +33,7 @@ function normalizeProduct(raw: unknown): LooseRecord | null {
   }
 }
 
-function normalizeBooking(raw: unknown, timezone: string): LooseRecord | null {
+function normalizeBooking(raw: unknown, _timezone: string): LooseRecord | null {
   if (!raw || typeof raw !== 'object') return null
   const b = raw as LooseRecord
 
@@ -49,17 +47,10 @@ function normalizeBooking(raw: unknown, timezone: string): LooseRecord | null {
 
   const total_paid = coerceNum(b.total_paid)
 
-  const booking_date =
-    typeof b.booking_date === 'string'
-      ? resolveBookingDateString(b.booking_date, timezone) ??
-        (b.booking_date as string)
-      : undefined
-
   return {
     ...b,
     services,
     products,
-    ...(booking_date ? { booking_date } : {}),
     ...(total_paid != null ? { total_paid } : {}),
   }
 }

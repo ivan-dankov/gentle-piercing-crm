@@ -31,16 +31,27 @@ function lineService(s: {
   return `  • ${label}: ${formatPln(s.price)} PLN${warn}`
 }
 
+export function formatMessageSentAt(iso: string, timezone: string): string {
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone: timezone,
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
+
 export function formatConfirmationSummary(
-  result: ResolvedParseSaleResult
+  result: ResolvedParseSaleResult,
+  timezone: string = 'Europe/Warsaw'
 ): string {
-  const parts: string[] = ['<b>Проверьте перед сохранением:</b>', '']
+  const parts: string[] = [
+    '<b>Проверьте перед сохранением:</b>',
+    `<i>Время записи: ${formatMessageSentAt(result.message_sent_at, timezone)}</i>`,
+    '',
+  ]
 
   result.bookings.forEach((b, i) => {
     if (result.bookings.length > 1) {
-      parts.push(`<b>Запись ${i + 1}</b>${b.booking_date ? ` (${b.booking_date})` : ''}`)
-    } else if (b.booking_date) {
-      parts.push(`<b>Дата:</b> ${b.booking_date}`)
+      parts.push(`<b>Запись ${i + 1}</b>`)
     }
 
     for (const s of b.services) {
