@@ -4,12 +4,35 @@ const CRM_EMAIL = process.env.CRM_USER_EMAIL ?? 'piercinggentle@gmail.com'
 
 let cachedUserId: string | null = null
 
-export function assertAllowedChat(chatId: number): void {
-  const allowed = process.env.TELEGRAM_ALLOWED_CHAT_ID
-  if (!allowed) {
-    throw new Error('TELEGRAM_ALLOWED_CHAT_ID is not configured')
+/** Forum topics use message_thread_id; private chats use 0 */
+export function normalizeThreadId(messageThreadId?: number): number {
+  return messageThreadId ?? 0
+}
+
+/**
+ * Returns true when the update is from the configured group/topic.
+ * Other chats and topics are ignored silently (no error reply).
+ */
+export function isAllowedUpdate(
+  chatId: number,
+  messageThreadId?: number
+): boolean {
+  const allowedChat = process.env.TELEGRAM_ALLOWED_CHAT_ID
+  if (!allowedChat || String(chatId) !== String(allowedChat)) {
+    return false
   }
-  if (String(chatId) !== String(allowed)) {
+
+  const allowedTopic = process.env.TELEGRAM_ALLOWED_TOPIC_ID?.trim()
+  if (!allowedTopic) {
+    return true
+  }
+
+  return String(normalizeThreadId(messageThreadId)) === allowedTopic
+}
+
+/** @deprecated use isAllowedUpdate — kept for error handler paths */
+export function assertAllowedChat(chatId: number): void {
+  if (!isAllowedUpdate(chatId)) {
     throw new Error('Unauthorized chat')
   }
 }

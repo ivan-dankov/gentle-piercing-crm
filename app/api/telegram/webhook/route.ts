@@ -6,8 +6,9 @@ import {
 } from '@/lib/analytics/financial-summary'
 import type { AnalyticsPeriod } from '@/lib/analytics/date-presets'
 import {
-  assertAllowedChat,
   getCrmUserId,
+  isAllowedUpdate,
+  normalizeThreadId,
   verifyWebhookSecret,
 } from '@/lib/telegram/auth'
 import {
@@ -16,6 +17,7 @@ import {
   confirmCancelKeyboard,
   editMessageText,
   sendMessage,
+  type TelegramReplyTarget,
 } from '@/lib/telegram/bot'
 import { loadCatalog } from '@/lib/telegram/catalog'
 import {
@@ -36,15 +38,29 @@ export const runtime = 'nodejs'
 
 let menuRegistered = false
 
+interface TelegramMessage {
+  chat: { id: number }
+  text?: string
+  message_thread_id?: number
+  is_topic_message?: boolean
+}
+
 interface TelegramUpdate {
-  message?: {
-    chat: { id: number }
-    text?: string
-  }
+  message?: TelegramMessage
   callback_query?: {
     id: string
     data?: string
-    message?: { chat: { id: number }; message_id: number }
+    message?: TelegramMessage & { message_id: number }
+  }
+}
+
+function replyTarget(
+  chatId: number,
+  messageThreadId?: number
+): TelegramReplyTarget {
+  return {
+    chatId,
+    messageThreadId: normalizeThreadId(messageThreadId) || undefined,
   }
 }
 
@@ -67,21 +83,28 @@ export async function POST(request: Request) {
 
   try {
     if (update.callback_query) {
-      await handleCallbackQuery(update.callback_query)
+      const msg = update.callback_query.message
+      if (!msg) return NextResponse.json({ ok: true })
+      if (!isAllowedUpdate(msg.chat.id, msg.message_thread_id)) {
+        return NextResponse.json({ ok: true })
+      }
+      await handleCallbackQuery(update.callback_query, msg)
     } else if (update.message?.text) {
+      const { chat, message_thread_id } = update.message
+      if (!isAllowedUpdate(chat.id, message_thread_id)) {
+        return NextResponse.json({ ok: true })
+      }
       await handleMessage(update.message)
     }
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('Telegram webhook error:', err)
-    const chatId =
-      update.message?.chat.id ??
-      update.callback_query?.message?.chat.id
-    if (chatId) {
+    const msg = update.message ?? update.callback_query?.message
+    if (msg && isAllowedUpdate(msg.chat.id, msg.message_thread_id)) {
+      const target = replyTarget(msg.chat.id, msg.message_thread_id)
       try {
-        assertAllowedChat(chatId)
         await sendMessage(
-          chatId,
+          target,
           `Ошибка: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`
         )
       } catch {
@@ -92,32 +115,32 @@ export async function POST(request: Request) {
   }
 }
 
-async function handleMessage(message: {
-  chat: { id: number }
-  text?: string
-}) {
+async function handleMessage(message: TelegramMessage) {
   const chatId = message.chat.id
-  assertAllowedChat(chatId)
+  const threadId = normalizeThreadId(message.message_thread_id)
+  const target = replyTarget(chatId, threadId)
 
   const text = message.text?.trim() ?? ''
   if (!text) return
 
-  if (text === '/start' || text === '/help') {
-    await sendMessage(chatId, HELP_TEXT)
-    return
-  }
-
-  if (text === '/analytics') {
-    await sendMessage(chatId, 'Выберите период:', {
-      reply_markup: analyticsPeriodKeyboard(),
-    })
-    return
+  if (text.startsWith('/')) {
+    const command = text.split(/\s/)[0]?.toLowerCase()
+    if (command === '/start' || command === '/help') {
+      await sendMessage(target, HELP_TEXT)
+      return
+    }
+    if (command === '/analytics') {
+      await sendMessage(target, 'Выберите период:', {
+        reply_markup: analyticsPeriodKeyboard(),
+      })
+      return
+    }
   }
 
   const userId = await getCrmUserId()
   const catalog = await loadCatalog(userId)
 
-  await sendMessage(chatId, '⏳ Разбираю сообщение…')
+  await sendMessage(target, '⏳ Разбираю сообщение…')
 
   const parsed = await parseSaleMessage(text, {
     services: catalog.services,
@@ -128,30 +151,34 @@ async function handleMessage(message: {
   if (hasUnresolvedItems(parsed)) {
     const summary = formatConfirmationSummary(parsed)
     await sendMessage(
-      chatId,
+      target,
       `${summary}\n\n⚠️ Не все позиции сопоставлены с каталогом. Исправьте сообщение или добавьте в CRM.`
     )
     return
   }
 
   const token = createSessionToken()
-  await savePendingSession(chatId, userId, token, parsed)
+  await savePendingSession(chatId, threadId, userId, token, parsed)
 
-  await sendMessage(chatId, formatConfirmationSummary(parsed), {
+  await sendMessage(target, formatConfirmationSummary(parsed), {
     reply_markup: confirmCancelKeyboard(token),
   })
 }
 
-async function handleCallbackQuery(query: {
-  id: string
-  data?: string
-  message?: { chat: { id: number }; message_id: number }
-}) {
-  const chatId = query.message?.chat.id
-  const messageId = query.message?.message_id
-  if (!chatId || !query.data) return
+async function handleCallbackQuery(
+  query: {
+    id: string
+    data?: string
+  },
+  message: TelegramMessage & { message_id: number }
+) {
+  const chatId = message.chat.id
+  const threadId = normalizeThreadId(message.message_thread_id)
+  const target = replyTarget(chatId, threadId)
+  const messageId = message.message_id
 
-  assertAllowedChat(chatId)
+  if (!query.data) return
+
   const userId = await getCrmUserId()
 
   if (query.data.startsWith('analytics:')) {
@@ -165,19 +192,21 @@ async function handleCallbackQuery(query: {
       catalog.timezone
     )
     await answerCallbackQuery(query.id)
-    await sendMessage(chatId, formatFinancialSummary(summary))
+    await sendMessage(target, formatFinancialSummary(summary))
     return
   }
 
   if (query.data.startsWith('confirm:')) {
     const token = query.data.slice('confirm:'.length)
-    const pending = await loadPendingSession(chatId, token)
+    const pending = await loadPendingSession(chatId, threadId, token)
 
     if (!pending) {
       await answerCallbackQuery(query.id, 'Сессия истекла')
-      if (messageId) {
-        await editMessageText(chatId, messageId, 'Сессия истекла. Отправьте сообщение снова.')
-      }
+      await editMessageText(
+        target,
+        messageId,
+        'Сессия истекла. Отправьте сообщение снова.'
+      )
       return
     }
 
@@ -193,7 +222,7 @@ async function handleCallbackQuery(query: {
       catalog.services,
       catalog.productCostMap
     )
-    await deletePendingSession(chatId)
+    await deletePendingSession(chatId, threadId)
     await answerCallbackQuery(query.id, 'Сохранено')
 
     const text =
@@ -201,23 +230,17 @@ async function handleCallbackQuery(query: {
         ? `✅ Запись сохранена (ID: ${ids[0].slice(0, 8)}…)`
         : `✅ Сохранено записей: ${ids.length}`
 
-    if (messageId) {
-      await editMessageText(chatId, messageId, text)
-    } else {
-      await sendMessage(chatId, text)
-    }
+    await editMessageText(target, messageId, text)
     return
   }
 
   if (query.data.startsWith('cancel:')) {
     const token = query.data.slice('cancel:'.length)
-    const pending = await loadPendingSession(chatId, token)
+    const pending = await loadPendingSession(chatId, threadId, token)
     if (pending) {
-      await deletePendingSession(chatId)
+      await deletePendingSession(chatId, threadId)
     }
     await answerCallbackQuery(query.id, 'Отменено')
-    if (messageId) {
-      await editMessageText(chatId, messageId, '❌ Отменено')
-    }
+    await editMessageText(target, messageId, '❌ Отменено')
   }
 }

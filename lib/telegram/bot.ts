@@ -27,8 +27,20 @@ export interface InlineKeyboardButton {
   callback_data: string
 }
 
+export type TelegramReplyTarget = {
+  chatId: number
+  messageThreadId?: number
+}
+
+function threadParams(target: TelegramReplyTarget): Record<string, number> {
+  if (target.messageThreadId && target.messageThreadId > 0) {
+    return { message_thread_id: target.messageThreadId }
+  }
+  return {}
+}
+
 export async function sendMessage(
-  chatId: number,
+  target: TelegramReplyTarget,
   text: string,
   options?: {
     reply_markup?: {
@@ -37,9 +49,10 @@ export async function sendMessage(
   }
 ): Promise<{ message_id: number }> {
   return telegramRequest('sendMessage', {
-    chat_id: chatId,
+    chat_id: target.chatId,
     text,
     parse_mode: 'HTML',
+    ...threadParams(target),
     ...options,
   })
 }
@@ -55,15 +68,16 @@ export async function answerCallbackQuery(
 }
 
 export async function editMessageText(
-  chatId: number,
+  target: TelegramReplyTarget,
   messageId: number,
   text: string
 ): Promise<void> {
   await telegramRequest('editMessageText', {
-    chat_id: chatId,
+    chat_id: target.chatId,
     message_id: messageId,
     text,
     parse_mode: 'HTML',
+    ...threadParams(target),
   })
 }
 

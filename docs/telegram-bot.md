@@ -8,7 +8,8 @@ Copy placeholders from [`.env.local.example`](../.env.local.example) into `.env.
 
 ```env
 TELEGRAM_BOT_TOKEN=          # from @BotFather
-TELEGRAM_ALLOWED_CHAT_ID=    # your Telegram chat id (numeric)
+TELEGRAM_ALLOWED_CHAT_ID=    # group id (negative) or private chat id
+TELEGRAM_ALLOWED_TOPIC_ID=   # forum topic id (message_thread_id); required for topic-only mode
 TELEGRAM_WEBHOOK_SECRET=     # random string; sent as X-Telegram-Bot-Api-Secret-Token
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini     # optional
@@ -18,21 +19,26 @@ CRM_USER_EMAIL=piercinggentle@gmail.com
 
 Existing `NEXT_PUBLIC_SUPABASE_URL` is required.
 
+If `TELEGRAM_ALLOWED_TOPIC_ID` is set, only messages in that **forum topic** are processed (any sender). Other topics and chats are ignored silently.
+
 ## Database
 
-Apply migration:
+Apply migrations:
 
 ```bash
 supabase db push
-# or run supabase/migrations/022_telegram_sessions.sql in the SQL editor
+# or run 022 and 023 in the SQL editor
 ```
 
 ## BotFather setup
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) → `/newbot` → copy token.
-2. Get your chat id: message the bot, then open  
-   `https://api.telegram.org/bot<TOKEN>/getUpdates` and read `message.chat.id`.
-3. After deploying the app, set the webhook:
+2. For a **group with topics**: add the bot to the group → **Group Privacy → Turn off** (`/setprivacy` in BotFather).
+3. Get ids — post a test message **inside the target topic**, then open  
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` and read:
+   - `message.chat.id` → `TELEGRAM_ALLOWED_CHAT_ID` (negative for supergroups)
+   - `message.message_thread_id` → `TELEGRAM_ALLOWED_TOPIC_ID`
+4. After deploying the app, set the webhook:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
@@ -43,8 +49,6 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
     "allowed_updates": ["message", "callback_query"]
   }'
 ```
-
-4. Optional: disable privacy mode if the bot is in a group (`/setprivacy` → Disable).
 
 ## Usage
 
