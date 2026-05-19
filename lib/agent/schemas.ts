@@ -1,31 +1,58 @@
 import { z } from 'zod'
 
+/** OpenAI often returns null for omitted optional fields — coerce to undefined */
+const optionalString = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((v) => (v == null || v === '' ? undefined : v))
+
+const optionalNumber = z
+  .union([z.number(), z.null()])
+  .optional()
+  .transform((v) => (v == null ? undefined : v))
+
+const optionalBoolean = z
+  .union([z.boolean(), z.null()])
+  .optional()
+  .transform((v) => (v == null ? undefined : v))
+
 export const parsedProductSchema = z.object({
-  sku_hint: z.string().optional(),
-  name_hint: z.string().optional(),
-  qty: z.number().int().min(1).default(1),
+  sku_hint: optionalString,
+  name_hint: optionalString,
+  qty: z
+    .union([z.number(), z.null()])
+    .optional()
+    .transform((v) => (v == null || v < 1 ? 1 : Math.floor(v))),
   price: z.number(),
 })
 
 export const parsedServiceSchema = z.object({
   price: z.number(),
-  base_price_hint: z.number().optional(),
-  label: z.string().optional(),
+  base_price_hint: optionalNumber,
+  label: optionalString,
 })
 
 export const parsedBookingDraftSchema = z.object({
-  booking_date: z.string().optional(),
-  services: z.array(parsedServiceSchema),
-  products: z.array(parsedProductSchema),
-  total_paid: z.number().optional(),
-  payment_method: z.enum(['cash', 'blik', 'card']).optional(),
-  booksy_fee_enabled: z.boolean().optional(),
-  notes: z.string().optional(),
+  booking_date: optionalString,
+  services: z.array(parsedServiceSchema).default([]),
+  products: z.array(parsedProductSchema).default([]),
+  total_paid: optionalNumber,
+  payment_method: z
+    .union([z.enum(['cash', 'blik', 'card']), z.null()])
+    .optional()
+    .transform((v) => (v == null ? undefined : v)),
+  booksy_fee_enabled: optionalBoolean,
+  notes: optionalString,
 })
 
 export const parseSaleResultSchema = z.object({
   bookings: z.array(parsedBookingDraftSchema).min(1),
-  unmatched_lines: z.array(z.string()).optional(),
+  unmatched_lines: z
+    .array(z.union([z.string(), z.null()]))
+    .optional()
+    .transform((lines) =>
+      lines?.filter((l): l is string => l != null && l !== '') ?? []
+    ),
 })
 
 export type ParsedProduct = z.infer<typeof parsedProductSchema>
