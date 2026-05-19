@@ -14,10 +14,6 @@ import {
 } from '@/lib/agent/product-matcher'
 import { normalizeParseJson } from '@/lib/agent/normalize-parse'
 import {
-  blockDraftFromLines,
-  blockLinesAccountedFor,
-} from '@/lib/agent/line-matcher'
-import {
   collectQtyShorthandLines,
   parseUnmatchedLine,
 } from '@/lib/agent/unmatched-line-parser'
@@ -184,44 +180,6 @@ function recoverUnmatchedLines(
   return { extraBookings, stillUnmatched }
 }
 
-function tryParseBlocksLocally(
-  cleaned: string,
-  catalog: {
-    services: CatalogService[]
-    products: CatalogProduct[]
-    timezone: string
-  }
-): ResolvedBookingDraft[] | null {
-  const blocks = splitBookingBlocks(cleaned)
-  if (blocks.length === 0) return null
-
-  const drafts = blocks.map((block) =>
-    blockDraftFromLines(block, catalog.services, catalog.products)
-  )
-  if (drafts.some((d) => d == null)) return null
-
-  const resolved = drafts.map((d) =>
-    resolveBooking(
-      { services: d!.services, products: d!.products },
-      catalog.products,
-      catalog.services,
-      catalog.timezone
-    )
-  )
-
-  const allAccounted = blocks.every(
-    (block, i) => drafts[i] && blockLinesAccountedFor(block, drafts[i]!)
-  )
-  if (!allAccounted && blocks.length > 1) return null
-
-  const hasSavable = resolved.some(
-    (b) =>
-      b.services.some((s) => s.service_id) ||
-      b.products.some((p) => p.product_id)
-  )
-  return hasSavable ? resolved : null
-}
-
 export async function parseSaleMessage(
   message: string,
   catalog: {
@@ -232,16 +190,6 @@ export async function parseSaleMessage(
   messageSentAt: Date
 ): Promise<ResolvedParseSaleResult> {
   const cleaned = preprocessMessage(message)
-
-  const localOnly = tryParseBlocksLocally(cleaned, catalog)
-  if (localOnly && localOnly.length > 0) {
-    return {
-      bookings: dedupeResolvedBookings(localOnly),
-      unmatched_lines: collectQtyShorthandLines(cleaned),
-      raw_message: cleaned,
-      message_sent_at: messageSentAt.toISOString(),
-    }
-  }
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {

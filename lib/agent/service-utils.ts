@@ -40,7 +40,7 @@ export function serviceNameScore(
 }
 
 const SERVICE_LABEL_RE =
-  /восстановлен|прокол|пирсинг|мочк|уш|нос|бров|губ|замена|дополнительн|канал/i
+  /восстановлен|прокол|пирсинг|мочк|уш|нос|бров|губ|замена|дополнительн|канал|выезд/i
 
 export function looksLikeServiceLabel(label?: string): boolean {
   if (!label?.trim()) return false
