@@ -1,4 +1,9 @@
-import type { ResolvedParseSaleResult } from '@/lib/agent/schemas'
+import type {
+  ResolvedBookingDraft,
+  ResolvedParseSaleResult,
+} from '@/lib/agent/schemas'
+import type { FinancialSummary } from '@/lib/analytics/financial-summary'
+import { formatTodaySnapshot } from '@/lib/analytics/financial-summary'
 import { formatPln } from '@/lib/telegram/bot'
 
 function lineProduct(p: {
@@ -76,18 +81,108 @@ export function formatConfirmationSummary(
     parts.push('')
   }
 
-  parts.push('Нажмите кнопку ниже для сохранения.')
+  if (canConfirm(result)) {
+    parts.push('Нажмите кнопку ниже для сохранения.')
+  } else {
+    parts.push('Добавьте позиции в CRM или уточните сообщение.')
+  }
   return parts.join('\n')
 }
 
+/** At least one line item can be saved (has catalog id) */
+export function canConfirm(result: ResolvedParseSaleResult): boolean {
+  return result.bookings.some(
+    (b) =>
+      b.services.some((s) => s.service_id) ||
+      b.products.some((p) => p.product_id)
+  )
+}
+
+/** Parsed rows missing catalog match — they will not be saved on confirm */
 export function hasUnresolvedItems(result: ResolvedParseSaleResult): boolean {
   for (const b of result.bookings) {
     for (const s of b.services) {
-      if (!s.service_id || s.match_confidence === 'none') return true
+      if (!s.service_id) return true
     }
     for (const p of b.products) {
-      if (!p.product_id || p.match_confidence === 'none') return true
+      if (!p.product_id) return true
     }
   }
   return false
+}
+
+export function hasConfirmationWarnings(result: ResolvedParseSaleResult): boolean {
+  return hasUnresolvedItems(result) || result.unmatched_lines.length > 0
+}
+
+function savedLineService(s: {
+  price: number
+  resolved_name?: string
+  label?: string
+}): string {
+  const label = s.resolved_name ?? s.label ?? 'Услуга'
+  return `  • ${label}: ${formatPln(s.price)} PLN`
+}
+
+function savedLineProduct(p: {
+  price: number
+  qty?: number
+  resolved_name?: string
+  resolved_sku?: string | null
+}): string {
+  const label = p.resolved_name ?? 'Товар'
+  const sku = p.resolved_sku ? ` [${p.resolved_sku}]` : ''
+  const qty = (p.qty ?? 1) > 1 ? ` ×${p.qty}` : ''
+  return `  • ${label}${sku}: ${formatPln(p.price)} PLN${qty}`
+}
+
+function savedBookingTotal(b: ResolvedBookingDraft): number {
+  const services = b.services
+    .filter((s) => s.service_id)
+    .reduce((sum, s) => sum + s.price, 0)
+  const products = b.products
+    .filter((p) => p.product_id)
+    .reduce((sum, p) => sum + p.price * (p.qty ?? 1), 0)
+  return services + products
+}
+
+export function formatSavedSummary(
+  result: ResolvedParseSaleResult,
+  savedBookingCount: number,
+  today?: FinancialSummary
+): string {
+  const parts: string[] = [
+    savedBookingCount === 1
+      ? '✅ <b>Запись сохранена</b>'
+      : `✅ <b>Сохранено записей: ${savedBookingCount}</b>`,
+    '',
+  ]
+
+  let index = 0
+  for (const b of result.bookings) {
+    const savedServices = b.services.filter((s) => s.service_id)
+    const savedProducts = b.products.filter((p) => p.product_id)
+    if (savedServices.length === 0 && savedProducts.length === 0) continue
+
+    index += 1
+    if (savedBookingCount > 1) {
+      parts.push(`<b>Запись ${index}</b>`)
+    }
+
+    for (const s of savedServices) {
+      parts.push(savedLineService(s))
+    }
+    for (const p of savedProducts) {
+      parts.push(savedLineProduct(p))
+    }
+
+    parts.push(`  <b>Итого:</b> ${formatPln(savedBookingTotal(b))} PLN`)
+    parts.push('')
+  }
+
+  if (today) {
+    parts.push(formatTodaySnapshot(today))
+  }
+
+  return parts.join('\n').trimEnd()
 }

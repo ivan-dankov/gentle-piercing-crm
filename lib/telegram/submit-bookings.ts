@@ -42,6 +42,8 @@ export async function submitResolvedBookings(
         price: p.price,
       }))
 
+    if (services.length === 0 && products.length === 0) continue
+
     const startTime = messageSentAt
     const endTime = bookingEndTime(
       startTime,

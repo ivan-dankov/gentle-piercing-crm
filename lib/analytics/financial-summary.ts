@@ -101,17 +101,23 @@ export async function getFinancialSummary(
   }
 }
 
-export function formatFinancialSummary(summary: FinancialSummary): string {
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('pl-PL', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Math.round(n))
+export function formatPlnAmount(n: number): string {
+  return new Intl.NumberFormat('pl-PL', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(n))
+}
 
+export function formatFinancialSummary(summary: FinancialSummary): string {
   return [
     `${summary.label} (${summary.timezone})`,
-    `Выручка: ${fmt(summary.revenue)} PLN`,
-    `Прибыль: ${fmt(summary.profit)} PLN`,
+    `Выручка: ${formatPlnAmount(summary.revenue)} PLN`,
+    `Прибыль: ${formatPlnAmount(summary.profit)} PLN`,
     `Записей: ${summary.bookingCount}`,
   ].join('\n')
+}
+
+/** Compact one-liner for post-save Telegram reply */
+export function formatTodaySnapshot(summary: FinancialSummary): string {
+  return `📊 <b>Сегодня:</b> выручка ${formatPlnAmount(summary.revenue)} PLN, прибыль ${formatPlnAmount(summary.profit)} PLN (${summary.bookingCount} зап.)`
 }

@@ -22,7 +22,9 @@ import {
 import { loadCatalog } from '@/lib/telegram/catalog'
 import {
   formatConfirmationSummary,
-  hasUnresolvedItems,
+  formatSavedSummary,
+  canConfirm,
+  hasConfirmationWarnings,
 } from '@/lib/telegram/format-summary'
 import { HELP_TEXT, registerBotMenu } from '@/lib/telegram/menu'
 import {
@@ -155,11 +157,12 @@ async function handleMessage(message: TelegramMessage) {
     messageSentAt
   )
 
-  if (hasUnresolvedItems(parsed)) {
-    const summary = formatConfirmationSummary(parsed, catalog.timezone)
+  const summary = formatConfirmationSummary(parsed, catalog.timezone)
+
+  if (!canConfirm(parsed)) {
     await sendMessage(
       target,
-      `${summary}\n\n⚠️ Не все позиции сопоставлены с каталогом. Исправьте сообщение или добавьте в CRM.`
+      `${summary}\n\n⚠️ Не удалось сопоставить позиции с каталогом. Исправьте сообщение или добавьте в CRM.`
     )
     return
   }
@@ -167,7 +170,11 @@ async function handleMessage(message: TelegramMessage) {
   const token = createSessionToken()
   await savePendingSession(chatId, threadId, userId, token, parsed)
 
-  await sendMessage(target, formatConfirmationSummary(parsed, catalog.timezone), {
+  const warning = hasConfirmationWarnings(parsed)
+    ? '\n\n⚠️ Часть строк не сохранится (нет в каталоге). Подтвердите, чтобы сохранить сопоставленное.'
+    : ''
+
+  await sendMessage(target, summary + warning, {
     reply_markup: confirmCancelKeyboard(token),
   })
 }
@@ -217,8 +224,8 @@ async function handleCallbackQuery(
       return
     }
 
-    if (hasUnresolvedItems(pending)) {
-      await answerCallbackQuery(query.id, 'Есть несопоставленные позиции')
+    if (!canConfirm(pending)) {
+      await answerCallbackQuery(query.id, 'Нет позиций для сохранения')
       return
     }
 
@@ -234,13 +241,15 @@ async function handleCallbackQuery(
       catalog.productCostMap,
       sentAt
     )
+    const today = await getFinancialSummary(
+      userId,
+      'today',
+      catalog.timezone
+    )
     await deletePendingSession(chatId, threadId)
     await answerCallbackQuery(query.id, 'Сохранено')
 
-    const text =
-      ids.length === 1
-        ? `✅ Запись сохранена (ID: ${ids[0].slice(0, 8)}…)`
-        : `✅ Сохранено записей: ${ids.length}`
+    const text = formatSavedSummary(pending, ids.length, today)
 
     await editMessageText(target, messageId, text)
     return

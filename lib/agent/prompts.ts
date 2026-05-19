@@ -53,8 +53,13 @@ RULES:
 - Output JSON matching the schema only.
 - One message may contain MULTIPLE bookings separated by blank lines or date headers.
 - Do NOT invent product_id or service_id. Use sku_hint and name_hint for products; use price and optional label for services.
-- Lone numbers (e.g. 150, 90) are usually SERVICE prices — match to catalog base_price when possible.
-- "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1).
+- Lone numbers matching a SERVICE base_price (e.g. 150, 90, 60, 30) go in services[].
+- Numbers 120–200 with a SKU/code (parentheses or after the price) are ALWAYS products[], NEVER services[].
+- Never put jewelry SKUs (32, 120, к1229, 191с, 896-3) in services — only in products with sku_hint.
+- "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1, к1229, 187с).
+- "PRICE SKU" without parentheses is also a product (e.g. "170 к1229" → price 170, sku_hint "к1229").
+- Cyrillic к at the start of a SKU is the same as Latin K (к1226 = K1226C in catalog).
+- A line with multiple prices (e.g. "150 120 (10)") is one booking with service 150 + product 120 (10) — never dump parseable lines into unmatched_lines.
 - "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия").
 - "DD.MM" lines only separate booking groups (do not use for calendar date; the app uses message send time).
 - total_paid per booking = sum of service prices + product line prices unless explicitly stated otherwise.
