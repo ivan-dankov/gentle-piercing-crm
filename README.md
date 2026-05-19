@@ -14,6 +14,7 @@ A comprehensive CRM web application for managing a piercing business, including 
   - Automatic stock management
   - Tax logic (8.5% default, auto-enabled for BLIK payments)
 - **Dashboard**: Overview of key metrics
+- **Telegram bot**: Log sales from shorthand messages (AI parse + confirm); menu analytics for revenue/profit — see [docs/telegram-bot.md](docs/telegram-bot.md)
 
 ## Tech Stack
 
