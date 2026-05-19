@@ -12,7 +12,7 @@ TELEGRAM_ALLOWED_CHAT_ID=    # group id (negative) or private chat id
 TELEGRAM_ALLOWED_TOPIC_ID=   # forum topic id (message_thread_id); required for topic-only mode
 TELEGRAM_WEBHOOK_SECRET=     # random string; sent as X-Telegram-Bot-Api-Secret-Token
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5-mini      # optional; default gpt-5-mini
+OPENAI_MODEL=gpt-4.1         # optional; default gpt-4.1
 SUPABASE_SERVICE_ROLE_KEY=   # server only — never expose to client
 CRM_USER_EMAIL=piercinggentle@gmail.com
 ```
