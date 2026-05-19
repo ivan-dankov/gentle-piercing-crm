@@ -6,6 +6,7 @@ import {
   matchProduct,
   matchService,
 } from '@/lib/agent/product-matcher'
+import { resolveBookingDateString } from '@/lib/agent/booking-date'
 import { normalizeParseJson } from '@/lib/agent/normalize-parse'
 import {
   type ParseSaleResult,
@@ -22,7 +23,8 @@ function preprocessMessage(text: string): string {
 function resolveBooking(
   draft: ParsedBookingDraft,
   products: CatalogProduct[],
-  services: CatalogService[]
+  services: CatalogService[],
+  timezone: string
 ): ResolvedBookingDraft {
   const resolvedServices = draft.services.map((s) => {
     const m = matchService(services, { price: s.price, label: s.label })
@@ -47,7 +49,7 @@ function resolveBooking(
     draft.total_paid ?? serviceTotal + productTotal
 
   return {
-    booking_date: draft.booking_date,
+    booking_date: resolveBookingDateString(draft.booking_date, timezone) ?? draft.booking_date,
     services: resolvedServices,
     products: resolvedProducts,
     total_paid,
@@ -105,7 +107,7 @@ export async function parseSaleMessage(
     throw new Error('Empty response from OpenAI')
   }
 
-  const json = normalizeParseJson(JSON.parse(raw) as unknown)
+  const json = normalizeParseJson(JSON.parse(raw) as unknown, catalog.timezone)
   const result = parseSaleResultSchema.safeParse(json)
   if (!result.success) {
     throw new Error(`Invalid parse result: ${result.error.message}`)
@@ -118,7 +120,7 @@ export async function parseSaleMessage(
   const parsed: ParseSaleResult = result.data
 
   const bookings = parsed.bookings.map((b) =>
-    resolveBooking(b, catalog.products, catalog.services)
+    resolveBooking(b, catalog.products, catalog.services, catalog.timezone)
   )
 
   return {

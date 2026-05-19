@@ -1,16 +1,7 @@
 import type { ResolvedBookingDraft } from '@/lib/agent/schemas'
+import { bookingStartTimeForDate } from '@/lib/agent/booking-date'
 import { createBooking } from '@/lib/bookings/create-booking'
 import type { CatalogService } from '@/lib/agent/product-matcher'
-
-export function bookingStartTime(
-  bookingDate: string | undefined,
-  fallback: Date = new Date()
-): Date {
-  if (!bookingDate) return fallback
-  const [y, m, d] = bookingDate.split('-').map(Number)
-  if (!y || !m || !d) return fallback
-  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
-}
 
 export function bookingEndTime(
   start: Date,
@@ -31,7 +22,8 @@ export async function submitResolvedBookings(
   userId: string,
   bookings: ResolvedBookingDraft[],
   catalogServices: CatalogService[],
-  productCostMap: Map<string, number | null>
+  productCostMap: Map<string, number | null>,
+  timezone: string = 'Europe/Warsaw'
 ): Promise<string[]> {
   const ids: string[] = []
 
@@ -51,7 +43,7 @@ export async function submitResolvedBookings(
         price: p.price,
       }))
 
-    const startTime = bookingStartTime(b.booking_date)
+    const startTime = bookingStartTimeForDate(b.booking_date, timezone)
     const endTime = bookingEndTime(
       startTime,
       services.map((s) => s.service_id),

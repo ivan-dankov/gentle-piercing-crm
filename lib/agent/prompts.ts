@@ -1,3 +1,5 @@
+import { getTodayInTimezone } from '@/lib/date-utils'
+
 export const OPERATOR_REFERENCE_TRANSCRIPT = `
 150
 15 лосьон
@@ -40,9 +42,12 @@ export function buildSystemPrompt(catalog: {
     )
     .join('\n')
 
+  const today = getTodayInTimezone(catalog.timezone)
+
   return `You parse shorthand Russian/Polish sale messages for a piercing studio CRM.
 
 Timezone: ${catalog.timezone}
+Today (for dating): ${today}
 
 RULES:
 - Output JSON matching the schema only.
@@ -51,7 +56,7 @@ RULES:
 - Lone numbers (e.g. 150, 90) are usually SERVICE prices — match to catalog base_price when possible.
 - "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1).
 - "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия").
-- "DD.MM" alone is booking_date for following group (year = current).
+- "DD.MM" alone is booking_date for the following group — European format (day.month), output as YYYY-MM-DD using year ${today.slice(0, 4)} unless DD.MM.YYYY is given.
 - total_paid per booking = sum of service prices + product line prices unless explicitly stated otherwise.
 - Every service and product object MUST include a numeric "price" field (required).
 - booksy_fee_enabled if message mentions booksy/букси.

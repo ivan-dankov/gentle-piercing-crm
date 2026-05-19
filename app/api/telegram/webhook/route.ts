@@ -220,7 +220,8 @@ async function handleCallbackQuery(
       userId,
       pending.bookings,
       catalog.services,
-      catalog.productCostMap
+      catalog.productCostMap,
+      catalog.timezone
     )
     await deletePendingSession(chatId, threadId)
     await answerCallbackQuery(query.id, 'Сохранено')
