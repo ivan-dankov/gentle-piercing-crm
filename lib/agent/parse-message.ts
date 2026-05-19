@@ -6,6 +6,7 @@ import {
   matchProduct,
   matchService,
 } from '@/lib/agent/product-matcher'
+import { normalizeParseJson } from '@/lib/agent/normalize-parse'
 import {
   type ParseSaleResult,
   type ParsedBookingDraft,
@@ -104,10 +105,15 @@ export async function parseSaleMessage(
     throw new Error('Empty response from OpenAI')
   }
 
-  const json = JSON.parse(raw) as unknown
+  const json = normalizeParseJson(JSON.parse(raw) as unknown)
   const result = parseSaleResultSchema.safeParse(json)
   if (!result.success) {
     throw new Error(`Invalid parse result: ${result.error.message}`)
+  }
+  if (result.data.bookings.length === 0) {
+    throw new Error(
+      'Не удалось разобрать продажу: укажите цены (например 150 или 160 (32)).'
+    )
   }
   const parsed: ParseSaleResult = result.data
 

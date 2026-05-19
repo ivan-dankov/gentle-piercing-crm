@@ -16,18 +16,39 @@ const optionalBoolean = z
   .optional()
   .transform((v) => (v == null ? undefined : v))
 
+const requiredPrice = z
+  .union([z.number(), z.string(), z.null()])
+  .transform((v, ctx) => {
+    if (v == null || v === '') {
+      ctx.addIssue({ code: 'custom', message: 'price required' })
+      return z.NEVER
+    }
+    if (typeof v === 'number' && !Number.isNaN(v)) return v
+    const cleaned = String(v).trim().replace(/\s/g, '').replace(',', '.')
+    const n = parseFloat(cleaned.replace(/[^\d.-]/g, ''))
+    if (Number.isNaN(n)) {
+      ctx.addIssue({ code: 'custom', message: 'invalid price' })
+      return z.NEVER
+    }
+    return n
+  })
+
 export const parsedProductSchema = z.object({
   sku_hint: optionalString,
   name_hint: optionalString,
   qty: z
-    .union([z.number(), z.null()])
+    .union([z.number(), z.string(), z.null()])
     .optional()
-    .transform((v) => (v == null || v < 1 ? 1 : Math.floor(v))),
-  price: z.number(),
+    .transform((v) => {
+      if (v == null || v === '') return 1
+      const n = typeof v === 'number' ? v : parseFloat(String(v))
+      return Number.isNaN(n) || n < 1 ? 1 : Math.floor(n)
+    }),
+  price: requiredPrice,
 })
 
 export const parsedServiceSchema = z.object({
-  price: z.number(),
+  price: requiredPrice,
   base_price_hint: optionalNumber,
   label: optionalString,
 })

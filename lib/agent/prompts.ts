@@ -53,6 +53,7 @@ RULES:
 - "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия").
 - "DD.MM" alone is booking_date for following group (year = current).
 - total_paid per booking = sum of service prices + product line prices unless explicitly stated otherwise.
+- Every service and product object MUST include a numeric "price" field (required).
 - booksy_fee_enabled if message mentions booksy/букси.
 - payment_method: blik if "блик/blik", card if "карта/card", else cash.
 - Put unparseable lines in unmatched_lines.
