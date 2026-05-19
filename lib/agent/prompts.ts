@@ -55,9 +55,11 @@ RULES:
 - Do NOT invent product_id or service_id. Use sku_hint and name_hint for products; use price and optional label for services.
 - Lone numbers matching a SERVICE base_price (e.g. 150, 90, 60, 30) go in services[].
 - Numbers 120–200 with a SKU/code (parentheses or after the price) are ALWAYS products[], NEVER services[]. Line price may differ from catalog (override).
-- "PRICE name" for add-ons (даунсайз, лосьон, бижутерия) = products[] with name_hint; use the message price even if catalog base differs.
+- "PRICE name" for add-ons (даунсайз, лосьон/лосьйон, бижутерия) = products[] with name_hint; use the message price even if catalog base differs.
+- "N пары сережек TOTAL зл" = N × unit price (e.g. 3 пары 210 зл → qty 3, product "Бижутерия Али" @ 70 each).
 - Never put jewelry SKUs (32, 120, к1229, 191с, 896-3) in services — only in products with sku_hint.
 - "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1, к1229, 187с).
+- Same SKU may exist as Pair and Single (name starts with "Single - "); lower line price → Single, ~pair catalog price → Pair.
 - "PRICE SKU" without parentheses is also a product (e.g. "170 к1229" → price 170, sku_hint "к1229").
 - Cyrillic к at the start of a SKU is the same as Latin K (к1226 = K1226C in catalog).
 - A line with multiple prices (e.g. "150 120 (10)") is one booking with service 150 + product 120 (10) — never dump parseable lines into unmatched_lines.

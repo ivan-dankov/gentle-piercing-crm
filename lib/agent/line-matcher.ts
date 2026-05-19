@@ -1,24 +1,21 @@
 import {
+  type AnalyzedLine,
+  tryParseNameFirstPrice,
+  tryParseParentheticalBundle,
+  tryParsePriceFirst,
+  tryParsePriceLast,
+  tryParsePriceThenWords,
+  tryParseSkuNoteLine,
+} from '@/lib/agent/line-patterns'
+
+export type { AnalyzedLine }
+import {
   isQtyShorthandLine,
   type LineProduct,
   type LineService,
 } from '@/lib/agent/unmatched-line-parser'
 import type { CatalogProduct, CatalogService } from '@/lib/agent/product-matcher'
 import { isExactServicePrice } from '@/lib/agent/service-utils'
-
-const PRODUCT_NAME_RE =
-  /лосьон|спрей|бижутер|сваровск|серьг|сереж|колечк|пара сер|даунсайз|downsize/i
-
-const SERVICE_NAME_RE =
-  /восстановлен|прокол|пирсинг|мочк|уш|нос|бров|губ|замена|дополнительн/i
-
-export type AnalyzedLine =
-  | { kind: 'product_sku'; price: number; sku_hint: string; qty: number }
-  | { kind: 'product_name'; price: number; name_hint: string; qty: number }
-  | { kind: 'service_price'; price: number }
-  | { kind: 'service_named'; price: number; label: string }
-  | { kind: 'qty_shorthand'; raw: string }
-  | { kind: 'unparsed'; raw: string }
 
 function looksLikeSkuToken(token: string): boolean {
   const t = token.trim()
@@ -40,6 +37,15 @@ export function analyzeBlockLine(line: string): AnalyzedLine[] {
   if (isQtyShorthandLine(trimmed)) {
     return [{ kind: 'qty_shorthand', raw: trimmed }]
   }
+
+  let early =
+    tryParseParentheticalBundle(trimmed) ??
+    tryParsePriceLast(trimmed) ??
+    tryParseNameFirstPrice(trimmed) ??
+    tryParseSkuNoteLine(trimmed) ??
+    tryParsePriceFirst(trimmed) ??
+    tryParsePriceThenWords(trimmed)
+  if (early) return early
 
   const items: AnalyzedLine[] = []
   let rest = trimmed
@@ -70,21 +76,6 @@ export function analyzeBlockLine(line: string): AnalyzedLine[] {
     /(\d+)\s+([кКkK][\w\d-]+|\d+[сСcC][\w\d-]*|\d{3,}-\d+)/gi,
     ' '
   ).trim()
-
-  // Full-line: PRICE [зл] NAME
-  const named = trimmed.match(/^(\d+)\s*(?:зл|zł|pln)?\s+(.+)$/i)
-  if (named && items.length === 0) {
-    const price = Number(named[1])
-    const label = named[2].trim()
-    if (PRODUCT_NAME_RE.test(label) || (label.split(/\s+/).length <= 2 && !SERVICE_NAME_RE.test(label))) {
-      items.push({ kind: 'product_name', price, name_hint: label, qty: 1 })
-    } else if (SERVICE_NAME_RE.test(label) || label.split(/\s+/).length > 2) {
-      items.push({ kind: 'service_named', price, label })
-    } else {
-      items.push({ kind: 'product_name', price, name_hint: label, qty: 1 })
-    }
-    return items
-  }
 
   // PRICE + product name in rest (60 бижутерия …)
   for (const m of rest.matchAll(
@@ -227,5 +218,6 @@ export function blockLinesAccountedFor(
     .filter((l) => Boolean(l) && !isQtyShorthandLine(l))
   if (lines.length === 0) return false
   const itemCount = draft.services.length + draft.products.length
-  return itemCount >= lines.length
+  const unparsedCount = draft.unparsed.length
+  return itemCount + unparsedCount >= lines.length
 }

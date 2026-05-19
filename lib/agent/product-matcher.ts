@@ -6,6 +6,10 @@ export interface CatalogProduct {
   cost: number | null
 }
 
+import {
+  productNameSearchTerms,
+  productNamesMatch,
+} from '@/lib/agent/product-name-match'
 import { normalizeServiceLabel, serviceNameScore } from '@/lib/agent/service-utils'
 
 export interface CatalogService {
@@ -94,6 +98,45 @@ function skuCandidates(hint: string): string[] {
   return [...out]
 }
 
+/** Catalog singles are named "Single - …"; pairs use the same SKU without that prefix */
+export function isSingleProductName(name: string): boolean {
+  return /^single\s*-/i.test(name.trim())
+}
+
+/** Same SKU often maps to a pair and a single — use operator price to pick variant */
+export function pickAmongSkuVariants(
+  candidates: CatalogProduct[],
+  operatorPrice: number
+): CatalogProduct {
+  if (candidates.length === 1) return candidates[0]
+
+  const closest = (list: CatalogProduct[]) =>
+    [...list].sort(
+      (a, b) =>
+        Math.abs(a.sale_price - operatorPrice) -
+        Math.abs(b.sale_price - operatorPrice)
+    )[0]
+
+  const singles = candidates.filter((p) => isSingleProductName(p.name))
+  const pairs = candidates.filter((p) => !isSingleProductName(p.name))
+
+  if (singles.length === 0) return closest(candidates)
+  if (pairs.length === 0) return closest(candidates)
+
+  const single = closest(singles)
+  const pair = closest(pairs)
+  const dSingle = Math.abs(single.sale_price - operatorPrice)
+  const dPair = Math.abs(pair.sale_price - operatorPrice)
+
+  if (dSingle + 20 < dPair) return single
+  if (dPair + 20 < dSingle) return pair
+
+  if (operatorPrice <= pair.sale_price * 0.75) return single
+  if (operatorPrice >= pair.sale_price * 0.9) return pair
+
+  return dSingle <= dPair ? single : pair
+}
+
 export function matchProduct(
   products: CatalogProduct[],
   opts: { sku_hint?: string; name_hint?: string; price: number }
@@ -119,16 +162,11 @@ export function matchProduct(
       )
     })
     if (bySku.length > 0) {
-      const sorted = [...bySku].sort(
-        (a, b) =>
-          Math.abs(a.sale_price - price) - Math.abs(b.sale_price - price)
-      )
-      const best = sorted[0]
+      const best = pickAmongSkuVariants(bySku, price)
       return {
         product_id: best.id,
         resolved_name: best.name,
         resolved_sku: best.sku,
-        // SKU in message = earring/product; line price is operator override
         match_confidence: 'high',
       }
     }
@@ -136,10 +174,16 @@ export function matchProduct(
 
   if (name_hint) {
     const q = name_hint.toLowerCase().trim()
-    const byName = products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) || q.includes(p.name.toLowerCase())
-    )
+    const nameTerms = productNameSearchTerms(q)
+    const byName = products.filter((p) => {
+      const n = p.name.toLowerCase()
+      return (
+        productNamesMatch(q, p.name) ||
+        nameTerms.some((t) => n.includes(t)) ||
+        n.includes(q) ||
+        q.includes(n)
+      )
+    })
     if (byName.length > 0) {
       const sorted = [...byName].sort((a, b) => {
         const scoreA =
