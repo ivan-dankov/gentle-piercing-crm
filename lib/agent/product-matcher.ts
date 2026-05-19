@@ -6,6 +6,8 @@ export interface CatalogProduct {
   cost: number | null
 }
 
+import { normalizeServiceLabel, serviceNameScore } from '@/lib/agent/service-utils'
+
 export interface CatalogService {
   id: string
   name: string
@@ -102,7 +104,6 @@ export function matchProduct(
   match_confidence: 'high' | 'low' | 'none'
 } {
   const { sku_hint, name_hint, price } = opts
-  let candidates = products
 
   if (sku_hint) {
     const variants = skuCandidates(sku_hint)
@@ -117,39 +118,49 @@ export function matchProduct(
         )
       )
     })
-    if (bySku.length > 0) candidates = bySku
-  } else if (name_hint) {
+    if (bySku.length > 0) {
+      const sorted = [...bySku].sort(
+        (a, b) =>
+          Math.abs(a.sale_price - price) - Math.abs(b.sale_price - price)
+      )
+      const best = sorted[0]
+      return {
+        product_id: best.id,
+        resolved_name: best.name,
+        resolved_sku: best.sku,
+        // SKU in message = earring/product; line price is operator override
+        match_confidence: 'high',
+      }
+    }
+  }
+
+  if (name_hint) {
     const q = name_hint.toLowerCase().trim()
     const byName = products.filter(
       (p) =>
         p.name.toLowerCase().includes(q) || q.includes(p.name.toLowerCase())
     )
-    if (byName.length > 0) candidates = byName
-  } else {
-    return { match_confidence: 'none' }
+    if (byName.length > 0) {
+      const sorted = [...byName].sort((a, b) => {
+        const scoreA =
+          (a.name.toLowerCase().includes(q) ? 2 : 0) -
+          Math.abs(a.sale_price - price) / 100
+        const scoreB =
+          (b.name.toLowerCase().includes(q) ? 2 : 0) -
+          Math.abs(b.sale_price - price) / 100
+        return scoreB - scoreA
+      })
+      const best = sorted[0]
+      return {
+        product_id: best.id,
+        resolved_name: best.name,
+        resolved_sku: best.sku,
+        match_confidence: 'high',
+      }
+    }
   }
 
-  if (candidates.length === 0) {
-    return { match_confidence: 'none' }
-  }
-
-  const sorted = [...candidates].sort(
-    (a, b) =>
-      Math.abs(a.sale_price - price) - Math.abs(b.sale_price - price)
-  )
-  const best = sorted[0]
-  const confidence =
-    sorted.length === 1 ||
-    Math.abs(best.sale_price - price) <= Math.abs(sorted[1].sale_price - price) + 5
-      ? 'high'
-      : 'low'
-
-  return {
-    product_id: best.id,
-    resolved_name: best.name,
-    resolved_sku: best.sku,
-    match_confidence: confidence,
-  }
+  return { match_confidence: 'none' }
 }
 
 export function matchService(
@@ -164,12 +175,36 @@ export function matchService(
   let candidates = services
 
   if (label) {
-    const q = label.toLowerCase()
-    const byName = services.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) || q.includes(s.name.toLowerCase())
-    )
+    const q = normalizeServiceLabel(label)
+    const byName = services.filter((s) => {
+      const n = s.name.toLowerCase()
+      return n.includes(q) || q.includes(n) || serviceNameScore(label, s.name) >= 0.35
+    })
     if (byName.length > 0) candidates = byName
+
+    const scored = services
+      .map((s) => ({ s, score: serviceNameScore(label, s.name) }))
+      .filter((x) => x.score >= 0.35)
+      .sort((a, b) => b.score - a.score)
+    if (scored.length > 0) {
+      const priceOk = scored.find(
+        (x) => Math.abs(x.s.base_price - price) <= 15
+      )
+      if (priceOk) {
+        return {
+          service_id: priceOk.s.id,
+          resolved_name: priceOk.s.name,
+          match_confidence:
+            Math.abs(priceOk.s.base_price - price) < 0.01 ? 'high' : 'low',
+        }
+      }
+      // Name match with operator price override (e.g. 110 даунсайз when catalog is 30)
+      return {
+        service_id: scored[0].s.id,
+        resolved_name: scored[0].s.name,
+        match_confidence: 'low',
+      }
+    }
   }
 
   const byPrice = candidates.filter((s) => Math.abs(s.base_price - price) < 0.01)

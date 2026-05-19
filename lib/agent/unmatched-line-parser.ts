@@ -15,10 +15,29 @@ export interface ParsedLineItems {
   products: LineProduct[]
 }
 
+/** Qty shorthand not parsed yet (e.g. 70*4) — warn in UI, exempt from block line count */
+export function isQtyShorthandLine(line: string): boolean {
+  const t = line.trim()
+  return /^\d+\s*\*\s*\d+$/.test(t)
+}
+
+export function collectQtyShorthandLines(text: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of text.split('\n')) {
+    const t = line.trim()
+    if (isQtyShorthandLine(t) && !seen.has(t)) {
+      seen.add(t)
+      out.push(t)
+    }
+  }
+  return out
+}
+
 /** Heuristic recovery for lines the model put in unmatched_lines */
 export function parseUnmatchedLine(line: string): ParsedLineItems | null {
   const trimmed = line.trim()
-  if (!trimmed) return null
+  if (!trimmed || isQtyShorthandLine(trimmed)) return null
 
   const products: LineProduct[] = []
   const services: LineService[] = []
@@ -49,14 +68,16 @@ export function parseUnmatchedLine(line: string): ParsedLineItems | null {
     ' '
   )
 
-  // PRICE * QTY — e.g. 70*4 (price-only product line)
-  for (const m of rest.matchAll(/(\d+)\s*\*\s*(\d+)/g)) {
-    products.push({
-      price: Number(m[1]),
-      qty: Number(m[2]),
-    })
+  // Inline PRICE*QTY inside a longer line only (standalone 70*4 is ignored)
+  if (!/^\d+\s*\*\s*\d+$/.test(trimmed)) {
+    for (const m of rest.matchAll(/(\d+)\s*\*\s*(\d+)/g)) {
+      products.push({
+        price: Number(m[1]),
+        qty: Number(m[2]),
+      })
+    }
+    rest = rest.replace(/(\d+)\s*\*\s*(\d+)/g, ' ')
   }
-  rest = rest.replace(/(\d+)\s*\*\s*(\d+)/g, ' ')
 
   // PRICE + name — e.g. 60 бижутерия Сваровски, 15 лосьон
   for (const m of rest.matchAll(

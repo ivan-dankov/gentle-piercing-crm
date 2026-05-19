@@ -54,13 +54,19 @@ RULES:
 - One message may contain MULTIPLE bookings separated by blank lines or date headers.
 - Do NOT invent product_id or service_id. Use sku_hint and name_hint for products; use price and optional label for services.
 - Lone numbers matching a SERVICE base_price (e.g. 150, 90, 60, 30) go in services[].
-- Numbers 120–200 with a SKU/code (parentheses or after the price) are ALWAYS products[], NEVER services[].
+- Numbers 120–200 with a SKU/code (parentheses or after the price) are ALWAYS products[], NEVER services[]. Line price may differ from catalog (override).
+- "PRICE name" for add-ons (даунсайз, лосьон, бижутерия) = products[] with name_hint; use the message price even if catalog base differs.
 - Never put jewelry SKUs (32, 120, к1229, 191с, 896-3) in services — only in products with sku_hint.
 - "PRICE (SKU)" lines are PRODUCTS: price before parentheses, SKU inside (may use Cyrillic: 191с, 25с1, к1229, 187с).
 - "PRICE SKU" without parentheses is also a product (e.g. "170 к1229" → price 170, sku_hint "к1229").
 - Cyrillic к at the start of a SKU is the same as Latin K (к1226 = K1226C in catalog).
 - A line with multiple prices (e.g. "150 120 (10)") is one booking with service 150 + product 120 (10) — never dump parseable lines into unmatched_lines.
-- "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия").
+- "PRICE name" lines are products by name (e.g. "15 лосьон", "70 бижутерия") — NOT piercing services.
+- "PRICE зл SERVICE DESCRIPTION" is a SERVICE with label (e.g. "50 зл восстановление канала" → service price 50, label "восстановление канала").
+- Lone 15 or 20 without SKU = spray/lotion PRODUCT, not a service.
+- "PRICE даунсайз" / "PRICE downsize" = PRODUCT with name_hint.
+- Lines like "70*4" (qty shorthand) go in unmatched_lines — not auto-parsed yet.
+- Each blank-line block = exactly ONE booking; keep all lines of that block together.
 - "DD.MM" lines only separate booking groups (do not use for calendar date; the app uses message send time).
 - total_paid per booking = sum of service prices + product line prices unless explicitly stated otherwise.
 - Every service and product object MUST include a numeric "price" field (required).

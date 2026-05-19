@@ -13,7 +13,15 @@ import {
   matchService,
 } from '@/lib/agent/product-matcher'
 import { normalizeParseJson } from '@/lib/agent/normalize-parse'
-import { parseUnmatchedLine } from '@/lib/agent/unmatched-line-parser'
+import {
+  blockDraftFromLines,
+  blockLinesAccountedFor,
+} from '@/lib/agent/line-matcher'
+import {
+  collectQtyShorthandLines,
+  parseUnmatchedLine,
+} from '@/lib/agent/unmatched-line-parser'
+import { looksLikeServiceLabel } from '@/lib/agent/service-utils'
 import {
   type ParseSaleResult,
   type ParsedBookingDraft,
@@ -76,12 +84,23 @@ function resolveBooking(
       })
       continue
     }
+
+    if (looksLikeServiceLabel(s.label)) {
+      resolvedServices.push({
+        price: s.price,
+        base_price_hint: undefined,
+        label: s.label,
+        ...m,
+      })
+      continue
+    }
+
     const asProduct = matchProduct(products, {
       sku_hint: s.label && /^[кКkK\d]/.test(s.label) ? s.label : undefined,
       name_hint: s.label,
       price: s.price,
     })
-    if (asProduct.product_id) {
+    if (asProduct.product_id && !looksLikeServiceLabel(s.label)) {
       resolvedProducts.push({
         price: s.price,
         sku_hint: s.label,
@@ -92,7 +111,7 @@ function resolveBooking(
       continue
     }
     const byPrice = matchProductByPrice(products, services, s.price)
-    if (byPrice?.product_id) {
+    if (byPrice?.product_id && !looksLikeServiceLabel(s.label)) {
       resolvedProducts.push({
         price: s.price,
         sku_hint: undefined,
@@ -115,8 +134,8 @@ function resolveBooking(
     (sum, p) => sum + p.price * (p.qty ?? 1),
     0
   )
-  const total_paid =
-    draft.total_paid ?? serviceTotal + productTotal
+  const computed = serviceTotal + productTotal
+  const total_paid = computed > 0 ? computed : (draft.total_paid ?? 0)
 
   return {
     booking_date: draft.booking_date,
@@ -165,6 +184,44 @@ function recoverUnmatchedLines(
   return { extraBookings, stillUnmatched }
 }
 
+function tryParseBlocksLocally(
+  cleaned: string,
+  catalog: {
+    services: CatalogService[]
+    products: CatalogProduct[]
+    timezone: string
+  }
+): ResolvedBookingDraft[] | null {
+  const blocks = splitBookingBlocks(cleaned)
+  if (blocks.length === 0) return null
+
+  const drafts = blocks.map((block) =>
+    blockDraftFromLines(block, catalog.services, catalog.products)
+  )
+  if (drafts.some((d) => d == null)) return null
+
+  const resolved = drafts.map((d) =>
+    resolveBooking(
+      { services: d!.services, products: d!.products },
+      catalog.products,
+      catalog.services,
+      catalog.timezone
+    )
+  )
+
+  const allAccounted = blocks.every(
+    (block, i) => drafts[i] && blockLinesAccountedFor(block, drafts[i]!)
+  )
+  if (!allAccounted && blocks.length > 1) return null
+
+  const hasSavable = resolved.some(
+    (b) =>
+      b.services.some((s) => s.service_id) ||
+      b.products.some((p) => p.product_id)
+  )
+  return hasSavable ? resolved : null
+}
+
 export async function parseSaleMessage(
   message: string,
   catalog: {
@@ -175,6 +232,17 @@ export async function parseSaleMessage(
   messageSentAt: Date
 ): Promise<ResolvedParseSaleResult> {
   const cleaned = preprocessMessage(message)
+
+  const localOnly = tryParseBlocksLocally(cleaned, catalog)
+  if (localOnly && localOnly.length > 0) {
+    return {
+      bookings: dedupeResolvedBookings(localOnly),
+      unmatched_lines: collectQtyShorthandLines(cleaned),
+      raw_message: cleaned,
+      message_sent_at: messageSentAt.toISOString(),
+    }
+  }
+
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not configured')
@@ -253,9 +321,10 @@ export async function parseSaleMessage(
       catalog.timezone
     )
     bookings = dedupeResolvedBookings([...bookings, ...extraBookings])
+    const qtyLines = collectQtyShorthandLines(cleaned)
     return {
       bookings,
-      unmatched_lines: stillUnmatched,
+      unmatched_lines: [...new Set([...stillUnmatched, ...qtyLines])],
       raw_message: cleaned,
       message_sent_at: messageSentAt.toISOString(),
     }
@@ -263,7 +332,7 @@ export async function parseSaleMessage(
 
   return {
     bookings: dedupeResolvedBookings(bookings),
-    unmatched_lines: [],
+    unmatched_lines: collectQtyShorthandLines(cleaned),
     raw_message: cleaned,
     message_sent_at: messageSentAt.toISOString(),
   }

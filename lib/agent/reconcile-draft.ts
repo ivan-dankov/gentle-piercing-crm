@@ -1,5 +1,6 @@
 import { parseUnmatchedLine, type LineProduct } from '@/lib/agent/unmatched-line-parser'
 import type { CatalogService } from '@/lib/agent/product-matcher'
+import { isExactServicePrice } from '@/lib/agent/service-utils'
 
 export type DraftLine = {
   price: number
@@ -92,27 +93,31 @@ function looksLikeSku(text: string): boolean {
   )
 }
 
-function isExactServicePrice(price: number, services: CatalogService[]): boolean {
-  return services.some((s) => Math.abs(s.base_price - price) < 0.01)
-}
-
 /**
  * Fix AI drafts: product+jewelry lines often land in services[].
- * Uses block text + global SKU patterns from the full message.
+ * Uses only the current block text (never the full message — avoids cross-booking bleed).
  */
 export function reconcileBookingDraft(
   draft: ReconcileableDraft,
   blockText: string,
-  fullMessageText: string,
+  _fullMessageText: string,
   catalogServices: CatalogService[]
 ): ReconcileableDraft {
-  const fromBlock = parseUnmatchedLine(blockText.replace(/\n/g, ' '))
-  const blockProducts = fromBlock?.products ?? []
-  const globalProducts = extractProductsFromText(fullMessageText)
+  const blockProducts: LineProduct[] = []
+  for (const line of blockText.split('\n')) {
+    const parsed = parseUnmatchedLine(line.trim())
+    if (parsed) blockProducts.push(...parsed.products)
+  }
+  const blockJoined = parseUnmatchedLine(blockText.replace(/\n/g, ' '))
+  if (blockJoined) {
+    for (const p of blockJoined.products) {
+      if (!blockProducts.some((x) => x.price === p.price && x.sku_hint === p.sku_hint)) {
+        blockProducts.push(p)
+      }
+    }
+  }
 
-  const skuProducts = [...blockProducts, ...globalProducts].filter(
-    (p) => p.sku_hint || p.name_hint
-  )
+  const skuProducts = blockProducts.filter((p) => p.sku_hint || p.name_hint)
 
   const services: DraftLine[] = []
   const products: DraftLine[] = [...draft.products]
@@ -154,18 +159,6 @@ export function reconcileBookingDraft(
       continue
     }
 
-    // Jewelry price band: not an exact service price → treat as product attempt
-    const exactService = isExactServicePrice(s.price, catalogServices)
-    const inJewelryBand = s.price >= 70 && s.price <= 200 && s.price % 10 === 0
-
-    if (!exactService && inJewelryBand) {
-      const byPrice = globalProducts.filter((p) => p.price === s.price && p.sku_hint)
-      if (byPrice.length === 1) {
-        products.push(byPrice[0])
-        continue
-      }
-    }
-
     services.push(s)
   }
 
@@ -175,8 +168,10 @@ export function reconcileBookingDraft(
     }
   }
 
-  if (fromBlock?.services) {
-    for (const bs of fromBlock.services) {
+  for (const line of blockText.split('\n')) {
+    const parsed = parseUnmatchedLine(line.trim())
+    if (!parsed) continue
+    for (const bs of parsed.services) {
       if (
         isExactServicePrice(bs.price, catalogServices) &&
         !services.some((s) => s.price === bs.price)
