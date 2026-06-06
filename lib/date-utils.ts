@@ -275,6 +275,19 @@ export function createAdditionalCostDateFilter(
 }
 
 /**
+ * Get the calendar date (YYYY-MM-DD) for an instant in a specific timezone
+ */
+export function extractCalendarDateInTimezone(date: Date | string, timezone: string): string {
+  const instant = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instant)
+}
+
+/**
  * Get the calendar date (YYYY-MM-DD) for today in a specific timezone
  */
 export function getTodayInTimezone(timezone: string): string {

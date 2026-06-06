@@ -23,7 +23,11 @@ export async function getFinancialSummary(
   period: AnalyticsPeriod,
   timezone: string = 'Europe/Warsaw'
 ): Promise<FinancialSummary> {
-  const { from, to } = resolveDatesForPreset(period, timezone)
+  const resolved = resolveDatesForPreset(period, timezone)
+  if (!resolved) {
+    throw new Error(`Unsupported analytics period: ${period}`)
+  }
+  const { from, to } = resolved
   const bookingDateFilter = createBookingDateFilter(from, to, timezone)
   const additionalCostDateFilter = createAdditionalCostDateFilter(from, to)
 

@@ -20,19 +20,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { dateToCalendarISOString, dateToCalendarISOStringEnd, parseCalendarDateFromISO } from '@/lib/date-utils'
-import {
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  endOfYear,
-  startOfWeek,
-  endOfWeek,
-  subDays,
-  subMonths,
-  subWeeks,
-} from 'date-fns'
+import { resolveDatesForPreset } from '@/lib/analytics/date-presets'
 import type { DateRange } from 'react-day-picker'
 
 type Preset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'allTime' | 'custom'
@@ -109,67 +97,23 @@ function loadFromLocalStorage(): { preset: Preset; from: string | null; to: stri
   }
 }
 
-function getPresetDates(preset: Preset): { from: Date; to: Date } | null {
-  const today = new Date()
-  
-  switch (preset) {
-    case 'today':
-      return {
-        from: startOfDay(today),
-        to: endOfDay(today),
-      }
-    case 'yesterday':
-      const yesterday = subDays(today, 1)
-      return {
-        from: startOfDay(yesterday),
-        to: endOfDay(yesterday),
-      }
-    case 'thisWeek':
-      return {
-        from: startOfWeek(today, { weekStartsOn: 1 }), // Monday
-        to: endOfWeek(today, { weekStartsOn: 1 }),
-      }
-    case 'lastWeek':
-      const lastWeek = subWeeks(today, 1)
-      return {
-        from: startOfWeek(lastWeek, { weekStartsOn: 1 }), // Monday
-        to: endOfWeek(lastWeek, { weekStartsOn: 1 }),
-      }
-    case 'last7days':
-      return {
-        from: startOfDay(subDays(today, 6)),
-        to: endOfDay(today),
-      }
-    case 'last30days':
-      return {
-        from: startOfDay(subDays(today, 29)),
-        to: endOfDay(today),
-      }
-    case 'thisMonth':
-      return {
-        from: startOfMonth(today),
-        to: endOfDay(today), // End at today, not end of month
-      }
-    case 'lastMonth':
-      const lastMonth = subMonths(today, 1)
-      return {
-        from: startOfMonth(lastMonth),
-        to: endOfMonth(lastMonth),
-      }
-    case 'thisYear':
-      return {
-        from: startOfYear(today),
-        to: endOfDay(today),
-      }
-    case 'allTime':
-    case 'custom':
-      return null
-    default:
-      return null
+function getPresetDates(preset: Preset, timezone: string): { from: Date; to: Date } | null {
+  if (preset === 'allTime' || preset === 'custom') {
+    return null
+  }
+
+  const resolved = resolveDatesForPreset(preset, timezone)
+  if (!resolved) {
+    return null
+  }
+
+  return {
+    from: parseCalendarDateFromISO(resolved.from),
+    to: parseCalendarDateFromISO(resolved.to),
   }
 }
 
-function detectPresetFromRange(range: DateRange | undefined): Preset {
+function detectPresetFromRange(range: DateRange | undefined, timezone: string): Preset {
   if (!range?.from || !range?.to) {
     return 'allTime'
   }
@@ -178,7 +122,7 @@ function detectPresetFromRange(range: DateRange | undefined): Preset {
   const presetsToCheck: Preset[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear']
   
   for (const preset of presetsToCheck) {
-    const presetDates = getPresetDates(preset)
+    const presetDates = getPresetDates(preset, timezone)
     if (presetDates) {
       // Compare dates by their ISO string (using start for "from" and end for "to")
       const rangeFromStr = dateToCalendarISOString(range.from)
@@ -196,12 +140,25 @@ function detectPresetFromRange(range: DateRange | undefined): Preset {
   return 'custom'
 }
 
-export function DashboardDateRangePicker() {
+interface DashboardDateRangePickerProps {
+  timezone?: string
+}
+
+export function DashboardDateRangePicker({ timezone = 'Europe/Warsaw' }: DashboardDateRangePickerProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [date, setDate] = useState<DateRange | undefined>({ from: undefined, to: undefined })
   const [preset, setPreset] = useState<Preset>('allTime')
   const [open, setOpen] = useState(false)
+  const [isCompact, setIsCompact] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1279px)')
+    const update = () => setIsCompact(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
 
   // Initialize from URL params or localStorage
   useEffect(() => {
@@ -212,7 +169,7 @@ export function DashboardDateRangePicker() {
     // If URL has params, use them (highest priority)
     if (presetParam && presets.some(p => p.value === presetParam)) {
       setPreset(presetParam)
-      const presetDates = getPresetDates(presetParam)
+      const presetDates = getPresetDates(presetParam, timezone)
       if (presetDates) {
         setDate({ from: presetDates.from, to: presetDates.to })
       } else {
@@ -224,7 +181,7 @@ export function DashboardDateRangePicker() {
       const to = parseCalendarDateFromISO(toParam)
       const dateRange = { from, to }
       setDate(dateRange)
-      const detectedPreset = detectPresetFromRange(dateRange)
+      const detectedPreset = detectPresetFromRange(dateRange, timezone)
       setPreset(detectedPreset)
     } else {
       // No URL params, try loading from localStorage/cookie
@@ -239,7 +196,7 @@ export function DashboardDateRangePicker() {
             const to = parseCalendarDateFromISO(stored.to)
             setDate({ from, to })
           } else {
-            const presetDates = getPresetDates(stored.preset)
+            const presetDates = getPresetDates(stored.preset, timezone)
             if (presetDates) {
               setDate({ from: presetDates.from, to: presetDates.to })
             } else {
@@ -251,16 +208,16 @@ export function DashboardDateRangePicker() {
           const to = parseCalendarDateFromISO(stored.to)
           const dateRange = { from, to }
           setDate(dateRange)
-          const detectedPreset = detectPresetFromRange(dateRange)
+          const detectedPreset = detectPresetFromRange(dateRange, timezone)
           setPreset(detectedPreset)
         }
       }
     }
-  }, [searchParams])
+  }, [searchParams, timezone])
 
   const handlePresetChange = (newPreset: Preset) => {
     setPreset(newPreset)
-    const presetDates = getPresetDates(newPreset)
+    const presetDates = getPresetDates(newPreset, timezone)
     
     const params = new URLSearchParams(searchParams.toString())
     params.set('preset', newPreset)
@@ -283,7 +240,7 @@ export function DashboardDateRangePicker() {
   const handleDateSelect = (range: DateRange | undefined) => {
     setDate(range)
     
-    const detectedPreset = detectPresetFromRange(range)
+    const detectedPreset = detectPresetFromRange(range, timezone)
     setPreset(detectedPreset)
     
     const params = new URLSearchParams(searchParams.toString())
@@ -313,10 +270,16 @@ export function DashboardDateRangePicker() {
     router.push(`?${params.toString()}`)
   }
 
+  const dateLabel = date?.from
+    ? date.to
+      ? `${format(date.from, 'MMM d, yyyy')} – ${format(date.to, 'MMM d, yyyy')}`
+      : format(date.from, 'MMM d, yyyy')
+    : 'Pick a date range'
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full min-w-0 flex-col gap-2 xl:w-auto xl:flex-row xl:items-center">
       <Select value={preset} onValueChange={handlePresetChange}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-full xl:w-[180px] xl:shrink-0">
           <SelectValue placeholder="Select preset" />
         </SelectTrigger>
         <SelectContent>
@@ -334,33 +297,26 @@ export function DashboardDateRangePicker() {
             id="date"
             variant="outline"
             className={cn(
-              'w-[300px] justify-start text-left font-normal',
+              'w-full min-w-0 justify-start text-left font-normal xl:w-[min(280px,100%)] xl:shrink',
               !date && 'text-muted-foreground'
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, 'LLL dd, y')} -{' '}
-                  {format(date.to, 'LLL dd, y')}
-                </>
-              ) : (
-                format(date.from, 'LLL dd, y')
-              )
-            ) : (
-              <span>Pick a date range</span>
-            )}
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">{dateLabel}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent
+          className="w-auto max-w-[calc(100vw-2rem)] p-0"
+          align={isCompact ? 'center' : 'start'}
+          collisionPadding={16}
+        >
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={date?.from || new Date()}
             selected={date}
             onSelect={handleDateSelect}
-            numberOfMonths={2}
+            numberOfMonths={isCompact ? 1 : 2}
           />
         </PopoverContent>
       </Popover>

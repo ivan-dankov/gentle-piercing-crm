@@ -11,11 +11,13 @@ import {
   Scissors, 
   LayoutDashboard,
   Menu,
+  Plus,
   Receipt,
   Settings
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { LogoutButton } from '@/components/auth/logout-button'
+import { BookingForm } from '@/components/booking-form'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
 import type { User } from '@supabase/supabase-js'
@@ -98,38 +100,46 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-export function Sidebar() {
+export function MobileNav() {
   const [open, setOpen] = useState(false)
 
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:flex h-screen w-64 flex-col border-r bg-background">
-        <SidebarContent />
-      </div>
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 lg:hidden">
+      <Drawer open={open} onOpenChange={setOpen} direction="left">
+        <DrawerTrigger asChild>
+          <Button variant="ghost" size="icon" className="shrink-0">
+            <Menu className="h-6 w-6" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent className="flex h-full w-64 flex-col">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Navigation</DrawerTitle>
+          </DrawerHeader>
+          <SidebarContent onNavigate={() => setOpen(false)} />
+        </DrawerContent>
+      </Drawer>
+      <h1
+        className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight"
+        style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}
+      >
+        Gentle Piercing
+      </h1>
+      <BookingForm>
+        <Button size="sm" className="shrink-0 text-xs shadow-sm">
+          <Plus className="h-4 w-4 mr-1.5" />
+          New
+        </Button>
+      </BookingForm>
+    </header>
+  )
+}
 
-      {/* Mobile Drawer */}
-      <div className="lg:hidden">
-        <Drawer open={open} onOpenChange={setOpen} direction="left">
-          <DrawerTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed top-4 left-4 z-50 lg:hidden"
-            >
-              <Menu className="h-6 w-6" />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="w-64 h-full flex flex-col">
-            <DrawerHeader className="sr-only">
-              <DrawerTitle>Navigation</DrawerTitle>
-            </DrawerHeader>
-            <SidebarContent onNavigate={() => setOpen(false)} />
-          </DrawerContent>
-        </Drawer>
-      </div>
-    </>
+export function Sidebar() {
+  return (
+    <div className="hidden h-screen w-64 flex-col border-r bg-background lg:flex">
+      <SidebarContent />
+    </div>
   )
 }
 

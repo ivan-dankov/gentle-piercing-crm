@@ -21,6 +21,12 @@ const playfairDisplay = Playfair_Display({
 export const metadata: Metadata = {
   title: "Gentle Piercing CRM",
   description: "CRM system for Gentle Piercing",
+  applicationName: "Gentle Piercing",
+  appleWebApp: {
+    capable: true,
+    title: "Gentle Piercing",
+    statusBarStyle: "default",
+  },
   viewport: {
     width: "device-width",
     initialScale: 1,

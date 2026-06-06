@@ -91,6 +91,33 @@ interface BookingCalendarProps {
   bookings: BookingWithRelations[]
 }
 
+const DEFAULT_EVENT_DURATION_MINUTES = 30
+
+function getEventEnd(booking: BookingWithRelations, start: Date): Date {
+  if (booking.end_time) {
+    const end = new Date(booking.end_time)
+    if (end > start) {
+      return end
+    }
+  }
+
+  let durationMinutes = 0
+  if (booking.booking_services?.length) {
+    durationMinutes = booking.booking_services.reduce(
+      (total, bs) => total + (bs.service?.duration_minutes ?? 0),
+      0
+    )
+  } else if (booking.service?.duration_minutes) {
+    durationMinutes = booking.service.duration_minutes
+  }
+
+  if (durationMinutes <= 0) {
+    durationMinutes = DEFAULT_EVENT_DURATION_MINUTES
+  }
+
+  return new Date(start.getTime() + durationMinutes * 60 * 1000)
+}
+
 export function BookingCalendar({ bookings }: BookingCalendarProps) {
   const router = useRouter()
   const [view, setView] = useState<View>('month')
@@ -149,7 +176,7 @@ export function BookingCalendar({ bookings }: BookingCalendarProps) {
       id: booking.id,
       title,
       start: startTime,
-      end: booking.end_time ? new Date(booking.end_time) : startTime,
+      end: getEventEnd(booking, startTime),
       resource: booking,
     }
   })
@@ -240,6 +267,7 @@ export function BookingCalendar({ bookings }: BookingCalendarProps) {
             eventTimeRangeEndFormat: () => '',
           }}
           eventPropGetter={eventStyleGetter}
+          dayLayoutAlgorithm="no-overlap"
           min={view !== 'month' ? new Date(2000, 0, 1, 8, 0) : undefined}
           scrollToTime={view !== 'month' ? new Date(2000, 0, 1, 8, 0) : undefined}
         />

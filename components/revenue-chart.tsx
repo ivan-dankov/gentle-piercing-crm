@@ -14,54 +14,17 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { format, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek, addWeeks } from 'date-fns'
+import { format, startOfISOWeek, endOfISOWeek, addWeeks } from 'date-fns'
+import {
+  buildChartData,
+  type DashboardAdditionalCostRow,
+  type DashboardBookingRow,
+} from '@/lib/analytics/dashboard-metrics'
 
 type GroupBy = 'daily' | 'weekly' | 'monthly'
 
-export interface ChartBooking {
-  start_time: string
-  total_paid: number
-  earring_cost: number
-  travel_fee: number
-  booksy_fee: number
-  broken_earring_loss: number
-  tax_amount: number
-  profit: number
-}
-
-export interface ChartAdditionalCost {
-  date: string
-  amount: number
-}
-
-interface PeriodData {
-  revenue: number
-  bookingCosts: number
-  bookingProfit: number
-  travelFees: number
-  additionalCosts: number
-}
-
-interface ChartPoint {
-  label: string
-  revenue: number
-  costs: number
-  profit: number
-}
-
-function getPeriodKey(date: Date, groupBy: GroupBy): string {
-  switch (groupBy) {
-    case 'daily':
-      return format(date, 'yyyy-MM-dd')
-    case 'weekly': {
-      const week = getISOWeek(date)
-      const year = getISOWeekYear(date)
-      return `${year}-W${String(week).padStart(2, '0')}`
-    }
-    case 'monthly':
-      return format(date, 'yyyy-MM')
-  }
-}
+export type ChartBooking = DashboardBookingRow
+export type ChartAdditionalCost = DashboardAdditionalCostRow
 
 function formatPeriodLabel(key: string, groupBy: GroupBy): string {
   switch (groupBy) {
@@ -73,7 +36,6 @@ function formatPeriodLabel(key: string, groupBy: GroupBy): string {
       const [yearStr, weekStr] = key.split('-W')
       const year = parseInt(yearStr)
       const week = parseInt(weekStr)
-      // Get Monday of the given ISO week
       const jan4 = new Date(year, 0, 4)
       const weekOneStart = startOfISOWeek(jan4)
       const weekStart = addWeeks(weekOneStart, week - 1)
@@ -87,7 +49,6 @@ function formatPeriodLabel(key: string, groupBy: GroupBy): string {
   }
 }
 
-// Custom tooltip component
 function ChartTooltip({ active, payload, label }: {
   active?: boolean
   payload?: { name: string; value: number; color: string }[]
@@ -114,72 +75,20 @@ function ChartTooltip({ active, payload, label }: {
 interface RevenueChartProps {
   bookings: ChartBooking[]
   additionalCosts: ChartAdditionalCost[]
+  timezone: string
 }
 
-export function RevenueChart({ bookings, additionalCosts }: RevenueChartProps) {
+export function RevenueChart({ bookings, additionalCosts, timezone }: RevenueChartProps) {
   const [groupBy, setGroupBy] = useState<GroupBy>('daily')
 
-  const chartData = useMemo<ChartPoint[]>(() => {
-    const periodMap = new Map<string, PeriodData>()
-
-    for (const booking of bookings) {
-      const date = new Date(booking.start_time)
-      const key = getPeriodKey(date, groupBy)
-      const prev = periodMap.get(key) ?? {
-        revenue: 0,
-        bookingCosts: 0,
-        bookingProfit: 0,
-        travelFees: 0,
-        additionalCosts: 0,
-      }
-
-      const bookingCost =
-        (booking.earring_cost || 0) +
-        (booking.travel_fee || 0) +
-        (booking.booksy_fee || 0) +
-        (booking.broken_earring_loss || 0) +
-        (booking.tax_amount || 0)
-
-      periodMap.set(key, {
-        revenue: prev.revenue + (booking.total_paid || 0),
-        bookingCosts: prev.bookingCosts + bookingCost,
-        bookingProfit: prev.bookingProfit + (booking.profit || 0),
-        travelFees: prev.travelFees + (booking.travel_fee || 0),
-        additionalCosts: prev.additionalCosts,
-      })
-    }
-
-    for (const cost of additionalCosts) {
-      const date = new Date(cost.date + 'T12:00:00')
-      const key = getPeriodKey(date, groupBy)
-      const prev = periodMap.get(key) ?? {
-        revenue: 0,
-        bookingCosts: 0,
-        bookingProfit: 0,
-        travelFees: 0,
-        additionalCosts: 0,
-      }
-      periodMap.set(key, { ...prev, additionalCosts: prev.additionalCosts + (cost.amount || 0) })
-    }
-
-    // Collect and sort keys
-    const allKeys = Array.from(
-      new Set([
-        ...bookings.map((b) => getPeriodKey(new Date(b.start_time), groupBy)),
-        ...additionalCosts.map((c) => getPeriodKey(new Date(c.date + 'T12:00:00'), groupBy)),
-      ])
-    ).sort()
-
-    return allKeys.map((key) => {
-      const p = periodMap.get(key)!
-      return {
-        label: formatPeriodLabel(key, groupBy),
-        revenue: p.revenue,
-        costs: p.bookingCosts + p.additionalCosts,
-        profit: p.bookingProfit - p.travelFees - p.additionalCosts,
-      }
-    })
-  }, [bookings, additionalCosts, groupBy])
+  const chartData = useMemo(
+    () =>
+      buildChartData(bookings, additionalCosts, groupBy, timezone).map((point) => ({
+        ...point,
+        label: formatPeriodLabel(point.label, groupBy),
+      })),
+    [bookings, additionalCosts, groupBy, timezone]
+  )
 
   const hasData = chartData.length > 0
 

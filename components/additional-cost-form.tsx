@@ -73,8 +73,24 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
   useEffect(() => {
     if (open) {
       loadCategories()
+    } else {
+      setCategoryOpen(false)
     }
   }, [open])
+
+  useEffect(() => {
+    if (!categoryOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-category-picker]')) {
+        setCategoryOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [categoryOpen])
 
   const loadCategories = async () => {
     try {
@@ -166,7 +182,7 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{cost ? 'Edit Additional Cost' : 'Add Additional Cost'}</DialogTitle>
           <DialogDescription>
@@ -181,76 +197,80 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Category</FormLabel>
-                  <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "w-full justify-between",
-                            !field.value && "text-muted-foreground"
-                          )}
-                          type="button"
-                        >
-                          {field.value || "Select or type a category..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                      <Command>
-                        <CommandInput 
-                          placeholder="Search or type new category..." 
-                          value={field.value}
-                          onValueChange={(value) => {
-                            field.onChange(value)
-                          }}
-                        />
-                        <CommandList>
-                          <CommandEmpty>
-                            {field.value ? (
-                              <div className="py-2">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="w-full justify-start"
-                                  onClick={() => {
-                                    field.onChange(field.value)
+                  <div className="relative" data-category-picker>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={categoryOpen}
+                        className={cn(
+                          'w-full justify-between',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                        type="button"
+                        onClick={() => setCategoryOpen((isOpen) => !isOpen)}
+                      >
+                        <span className="truncate">
+                          {field.value || 'Select or type a category...'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                    {categoryOpen && (
+                      <div className="mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                        <Command>
+                          <CommandInput
+                            placeholder="Search or type new category..."
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value)
+                            }}
+                          />
+                          <CommandList className="max-h-[min(220px,40dvh)]">
+                            <CommandEmpty>
+                              {field.value ? (
+                                <div className="py-2">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full justify-start"
+                                    onClick={() => {
+                                      field.onChange(field.value)
+                                      setCategoryOpen(false)
+                                    }}
+                                  >
+                                    Create &quot;{field.value}&quot;
+                                  </Button>
+                                </div>
+                              ) : (
+                                'No category found.'
+                              )}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {existingCategories.map((category) => (
+                                <CommandItem
+                                  key={category}
+                                  value={category}
+                                  onSelect={() => {
+                                    field.onChange(category)
                                     setCategoryOpen(false)
                                   }}
                                 >
-                                  Create "{field.value}"
-                                </Button>
-                              </div>
-                            ) : (
-                              "No category found."
-                            )}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {existingCategories.map((category) => (
-                              <CommandItem
-                                key={category}
-                                value={category}
-                                onSelect={() => {
-                                  field.onChange(category)
-                                  setCategoryOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    field.value === category ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {category}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      field.value === category ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                  {category}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </div>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -302,7 +322,11 @@ export function AdditionalCostForm({ cost, children, onSuccess }: AdditionalCost
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent
+                      className="z-[60] w-auto max-w-[calc(100vw-2rem)] p-0"
+                      align="start"
+                      collisionPadding={16}
+                    >
                       <Calendar
                         mode="single"
                         selected={field.value}

@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt, Plus } from 'lucide-react'
+import { Calendar, Gem, DollarSign, TrendingUp, TrendingDown, Package, Briefcase, Car, CreditCard, AlertTriangle, Receipt } from 'lucide-react'
 import { DashboardDateRangePicker } from '@/components/dashboard-date-range-picker'
-import { createBookingDateFilter, createAdditionalCostDateFilter, extractCalendarDate, extractCalendarDateFromTimestamp, dateToCalendarISOString, dateToCalendarISOStringEnd, getTodayInTimezone, getMonthBoundsInTimezone } from '@/lib/date-utils'
-import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, startOfWeek, endOfWeek, subDays, subMonths, subWeeks } from 'date-fns'
+import { createBookingDateFilter, createAdditionalCostDateFilter } from '@/lib/date-utils'
+import { RELATIVE_DASHBOARD_PRESETS, resolveDatesForPreset } from '@/lib/analytics/date-presets'
+import { calculateDashboardMetrics, type DashboardAdditionalCostRow, type DashboardBookingRow } from '@/lib/analytics/dashboard-metrics'
+import { fetchDashboardBookings } from '@/lib/bookings/fetch-dashboard-bookings'
 import {
   Table,
   TableBody,
@@ -14,10 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { BookingForm } from '@/components/booking-form'
-import { Button } from '@/components/ui/button'
 import { RevenueChart } from '@/components/revenue-chart'
-import type { ChartBooking, ChartAdditionalCost } from '@/components/revenue-chart'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,69 +49,14 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
     }
   }
 
-  // Regenerate fresh dates for a named preset relative to today in the user's timezone.
-  // This prevents stale from/to values (e.g. "thisMonth" stored on April 2 being used on April 10).
-  function resolveDatesForPreset(preset: string): { from: string; to: string } | null {
-    const todayStr = getTodayInTimezone(timezone)
-    const [year, month, day] = todayStr.split('-').map(Number)
-    const todayInTz = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0))
-
-    let presetDates: { from: Date; to: Date } | null = null
-    switch (preset) {
-      case 'today':
-        presetDates = { from: startOfDay(todayInTz), to: endOfDay(todayInTz) }
-        break
-      case 'yesterday': {
-        const yesterday = subDays(todayInTz, 1)
-        presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
-        break
-      }
-      case 'thisWeek':
-        presetDates = { from: startOfWeek(todayInTz, { weekStartsOn: 1 }), to: endOfWeek(todayInTz, { weekStartsOn: 1 }) }
-        break
-      case 'lastWeek': {
-        const lastWeek = subWeeks(todayInTz, 1)
-        presetDates = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) }
-        break
-      }
-      case 'last7days':
-        presetDates = { from: startOfDay(subDays(todayInTz, 6)), to: endOfDay(todayInTz) }
-        break
-      case 'last30days':
-        presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
-        break
-      case 'thisMonth': {
-        const thisMonthFirst = getMonthBoundsInTimezone(year, month, timezone).from
-        presetDates = { from: thisMonthFirst, to: endOfDay(todayInTz) }
-        break
-      }
-      case 'lastMonth': {
-        const lastMonthNum = month === 1 ? 12 : month - 1
-        const lastMonthYear = month === 1 ? year - 1 : year
-        presetDates = getMonthBoundsInTimezone(lastMonthYear, lastMonthNum, timezone)
-        break
-      }
-      case 'thisYear':
-        presetDates = { from: startOfYear(todayInTz), to: endOfDay(todayInTz) }
-        break
-    }
-
-    if (!presetDates) return null
-    return {
-      from: dateToCalendarISOString(presetDates.from),
-      to: dateToCalendarISOStringEnd(presetDates.to),
-    }
-  }
-
   // Get date range from URL params or cookie (for server-side rendering)
   let fromParam = params.from || null
   let toParam = params.to || null
 
   // If a named preset is in the URL, always regenerate dates fresh from today —
   // the from/to in the URL are stale (they were computed when the user last clicked the preset).
-  const relativePresets = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'last7days', 'last30days', 'thisMonth', 'lastMonth', 'thisYear']
-  if (params.preset && relativePresets.includes(params.preset)) {
-    const resolved = resolveDatesForPreset(params.preset)
+  if (params.preset && RELATIVE_DASHBOARD_PRESETS.includes(params.preset as typeof RELATIVE_DASHBOARD_PRESETS[number])) {
+    const resolved = resolveDatesForPreset(params.preset as typeof RELATIVE_DASHBOARD_PRESETS[number], timezone)
     if (resolved) {
       fromParam = resolved.from
       toParam = resolved.to
@@ -127,8 +71,8 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         if (cookieData.preset === 'allTime') {
           fromParam = null
           toParam = null
-        } else if (cookieData.preset && relativePresets.includes(cookieData.preset)) {
-          const resolved = resolveDatesForPreset(cookieData.preset)
+        } else if (cookieData.preset && RELATIVE_DASHBOARD_PRESETS.includes(cookieData.preset)) {
+          const resolved = resolveDatesForPreset(cookieData.preset, timezone)
           if (resolved) {
             fromParam = resolved.from
             toParam = resolved.to
@@ -147,53 +91,10 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const bookingDateFilter = createBookingDateFilter(fromParam, toParam, timezone)
   const additionalCostDateFilter = createAdditionalCostDateFilter(fromParam, toParam)
 
-  // Build query with date filter
-  let bookingsQuery = supabase
-    .from('bookings')
-    .select(`
-      id,
-      total_paid,
-      profit,
-      earring_cost,
-      travel_fee,
-      booksy_fee,
-      broken_earring_loss,
-      tax_amount,
-      start_time,
-      booking_products(
-        id,
-        qty,
-        price,
-        product:products(
-          id,
-          name
-        )
-      ),
-      booking_services(
-        id,
-        service_id,
-        price,
-        service:services(
-          id,
-          name
-        )
-      )
-    `)
-    .limit(10000)
-
-  if (bookingDateFilter.from) {
-    bookingsQuery = bookingsQuery.gte('start_time', bookingDateFilter.from.toISOString())
-  }
-  if (bookingDateFilter.to) {
-    bookingsQuery = bookingsQuery.lte('start_time', bookingDateFilter.to.toISOString())
-  }
-
-  const bookingsResult = await bookingsQuery
-  const bookingsData = (bookingsResult.data as any[]) || []
-  
-  // Note: We use an expanded date range (1 day on each side) to ensure bookings
-  // made at 00:00 local time in any timezone are included. The database query
-  // handles the filtering, and the expanded range ensures we don't miss edge cases.
+  const bookingsData = (await fetchDashboardBookings(supabase, {
+    from: bookingDateFilter.from,
+    to: bookingDateFilter.to,
+  })) as DashboardBookingRow[]
 
   // Fetch additional costs within date range
   let additionalCostsQuery = supabase
@@ -208,122 +109,35 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   }
 
   const additionalCostsResult = await additionalCostsQuery
-  const additionalCostsData = (additionalCostsResult.data as any[]) || []
+  const additionalCostsData = (additionalCostsResult.data as DashboardAdditionalCostRow[]) || []
 
-  // Calculate additional costs by category (dynamically from data)
-  const additionalCostsByCategory: Record<string, number> = {}
-
-  additionalCostsData.forEach((cost: any) => {
-    if (cost.type) {
-      if (!additionalCostsByCategory[cost.type]) {
-        additionalCostsByCategory[cost.type] = 0
-      }
-      additionalCostsByCategory[cost.type] += cost.amount || 0
-    }
-  })
-
-  const totalAdditionalCosts = Object.values(additionalCostsByCategory).reduce((sum, val) => sum + val, 0)
-
-  // Calculate financial metrics
-  const totalRevenue = bookingsData.reduce((sum, b: any) => sum + (b.total_paid || 0), 0) || 0
-  const totalBookings = bookingsData.length
-
-  // Use stored booking fields for the cost breakdown — these are the same values
-  // that were used when calculating each booking's stored profit, so the numbers reconcile.
-  let totalEarringCosts = 0
-  let totalTravelFees = 0
-  let totalBooksyFees = 0
-  let totalBrokenEarringLosses = 0
-  let totalTax = 0
-
-  bookingsData.forEach((booking: any) => {
-    totalEarringCosts += booking.earring_cost || 0
-    totalTravelFees += booking.travel_fee || 0
-    totalBooksyFees += booking.booksy_fee || 0
-    totalBrokenEarringLosses += booking.broken_earring_loss || 0
-    totalTax += booking.tax_amount || 0
-  })
-
-  const totalCosts = totalEarringCosts + totalTravelFees + totalBooksyFees + totalBrokenEarringLosses + totalTax + totalAdditionalCosts
-
-  // Stored profit = total_paid - (earring_cost + booksy_fee + broken_loss + tax).
-  // travel_fee was never subtracted from stored profit, so we subtract it here to keep
-  // Revenue - Costs = Profit consistent.
-  const totalProfitFromBookings = bookingsData.reduce((sum, b: any) => sum + (b.profit || 0), 0) || 0
-  const totalProfit = totalProfitFromBookings - totalTravelFees - totalAdditionalCosts
-
-  // Calculate averages per booking
-  const avgRevenuePerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0
-  const avgProfitPerBooking = totalBookings > 0 ? totalProfit / totalBookings : 0
-  const avgCostPerBooking = totalBookings > 0 ? totalCosts / totalBookings : 0
-
-  // Top 5 products by sales (quantity)
-  const productSalesMap = new Map<string, { name: string; qty: number; revenue: number }>()
-  
-  bookingsData.forEach((booking: any) => {
-    if (booking.booking_products && Array.isArray(booking.booking_products)) {
-      booking.booking_products.forEach((be: any) => {
-        const product = Array.isArray(be.product) ? be.product[0] : be.product
-        if (product) {
-          const productId = product.id
-          const existing = productSalesMap.get(productId) || { name: product.name, qty: 0, revenue: 0 }
-          
-          const revenue = be.price ? be.price * (be.qty || 0) : 0
-          
-          productSalesMap.set(productId, {
-            name: existing.name,
-            qty: existing.qty + (be.qty || 0),
-            revenue: existing.revenue + revenue,
-          })
-        }
-      })
-    }
-  })
-  
-  const topProducts = Array.from(productSalesMap.values())
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5)
-
-  // Top 5 services by sales (revenue)
-  const serviceSalesMap = new Map<string, { name: string; count: number; revenue: number }>()
-  
-  bookingsData.forEach((booking: any) => {
-    if (booking.booking_services && Array.isArray(booking.booking_services)) {
-      booking.booking_services.forEach((bs: any) => {
-        const service = Array.isArray(bs.service) ? bs.service[0] : bs.service
-        if (service) {
-          const serviceId = service.id
-          const existing = serviceSalesMap.get(serviceId) || { name: service.name, count: 0, revenue: 0 }
-          
-          serviceSalesMap.set(serviceId, {
-            name: existing.name,
-            count: existing.count + 1,
-            revenue: existing.revenue + (bs.price || 0),
-          })
-        }
-      })
-    }
-  })
-
-  const topServices = Array.from(serviceSalesMap.values())
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5)
+  const {
+    totalRevenue,
+    totalBookings,
+    totalProfit,
+    totalCosts,
+    totalEarringCosts,
+    totalTravelFees,
+    totalBooksyFees,
+    totalBrokenEarringLosses,
+    totalTax,
+    totalAdditionalCosts,
+    additionalCostsByCategory,
+    avgRevenuePerBooking,
+    avgProfitPerBooking,
+    avgCostPerBooking,
+    topProducts,
+    topServices,
+  } = calculateDashboardMetrics(bookingsData, additionalCostsData)
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-6">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight shrink-0" style={{ fontFamily: 'var(--font-heading, var(--font-geist-sans))' }}>
           Dashboard
         </h1>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <BookingForm>
-            <Button size="sm" className="text-xs sm:text-sm shadow-sm">
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">New Booking</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          </BookingForm>
-          <DashboardDateRangePicker />
+        <div className="w-full min-w-0 xl:w-auto xl:max-w-full">
+          <DashboardDateRangePicker timezone={timezone} />
         </div>
       </div>
 
@@ -380,20 +194,9 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
 
       {/* Revenue / Costs / Profit Chart */}
       <RevenueChart
-        bookings={bookingsData.map((b: any): ChartBooking => ({
-          start_time: b.start_time,
-          total_paid: b.total_paid ?? 0,
-          earring_cost: b.earring_cost ?? 0,
-          travel_fee: b.travel_fee ?? 0,
-          booksy_fee: b.booksy_fee ?? 0,
-          broken_earring_loss: b.broken_earring_loss ?? 0,
-          tax_amount: b.tax_amount ?? 0,
-          profit: b.profit ?? 0,
-        }))}
-        additionalCosts={additionalCostsData.map((c: any): ChartAdditionalCost => ({
-          date: c.date,
-          amount: c.amount ?? 0,
-        }))}
+        bookings={bookingsData}
+        additionalCosts={additionalCostsData}
+        timezone={timezone}
       />
 
       {/* Costs Breakdown */}
