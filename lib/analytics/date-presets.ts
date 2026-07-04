@@ -1,19 +1,8 @@
 import {
-  dateToCalendarISOString,
-  dateToCalendarISOStringEnd,
-  getMonthBoundsInTimezone,
+  addDaysToCalendarDate,
   getTodayInTimezone,
+  getUTCDayOfWeekForCalendarDate,
 } from '@/lib/date-utils'
-import {
-  endOfDay,
-  endOfWeek,
-  startOfDay,
-  startOfWeek,
-  startOfYear,
-  subDays,
-  subMonths,
-  subWeeks,
-} from 'date-fns'
 
 export type AnalyticsPeriod = 'today' | 'thisWeek' | 'thisMonth'
 
@@ -38,66 +27,71 @@ export const RELATIVE_DASHBOARD_PRESETS: DashboardPreset[] = [
   'thisYear',
 ]
 
+function toPresetRange(fromDateStr: string, toDateStr: string): { from: string; to: string } {
+  return {
+    from: `${fromDateStr}T00:00:00.000Z`,
+    to: `${toDateStr}T23:59:59.999Z`,
+  }
+}
+
+function formatCalendarDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function getDaysInCalendarMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+function startOfWeekMonday(dateStr: string): string {
+  const dayOfWeek = getUTCDayOfWeekForCalendarDate(dateStr)
+  const daysSinceMonday = (dayOfWeek + 6) % 7
+  return addDaysToCalendarDate(dateStr, -daysSinceMonday)
+}
+
 export function resolveDatesForPreset(
   preset: DashboardPreset | AnalyticsPeriod,
   timezone: string = 'Europe/Warsaw'
 ): { from: string; to: string } | null {
   const todayStr = getTodayInTimezone(timezone)
   const [year, month] = todayStr.split('-').map(Number)
-  const todayInTz = new Date(Date.UTC(year, month - 1, Number(todayStr.split('-')[2]), 12, 0, 0, 0))
-
-  let presetDates: { from: Date; to: Date } | null = null
 
   switch (preset) {
     case 'today':
-      presetDates = { from: startOfDay(todayInTz), to: endOfDay(todayInTz) }
-      break
+      return toPresetRange(todayStr, todayStr)
     case 'yesterday': {
-      const yesterday = subDays(todayInTz, 1)
-      presetDates = { from: startOfDay(yesterday), to: endOfDay(yesterday) }
-      break
+      const yesterday = addDaysToCalendarDate(todayStr, -1)
+      return toPresetRange(yesterday, yesterday)
     }
-    case 'thisWeek':
-      presetDates = {
-        from: startOfWeek(todayInTz, { weekStartsOn: 1 }),
-        to: endOfWeek(todayInTz, { weekStartsOn: 1 }),
-      }
-      break
+    case 'thisWeek': {
+      const weekStart = startOfWeekMonday(todayStr)
+      const weekEnd = addDaysToCalendarDate(weekStart, 6)
+      return toPresetRange(weekStart, weekEnd)
+    }
     case 'lastWeek': {
-      const lastWeek = subWeeks(todayInTz, 1)
-      presetDates = {
-        from: startOfWeek(lastWeek, { weekStartsOn: 1 }),
-        to: endOfWeek(lastWeek, { weekStartsOn: 1 }),
-      }
-      break
+      const thisWeekStart = startOfWeekMonday(todayStr)
+      const lastWeekStart = addDaysToCalendarDate(thisWeekStart, -7)
+      const lastWeekEnd = addDaysToCalendarDate(lastWeekStart, 6)
+      return toPresetRange(lastWeekStart, lastWeekEnd)
     }
     case 'last7days':
-      presetDates = { from: startOfDay(subDays(todayInTz, 6)), to: endOfDay(todayInTz) }
-      break
+      return toPresetRange(addDaysToCalendarDate(todayStr, -6), todayStr)
     case 'last30days':
-      presetDates = { from: startOfDay(subDays(todayInTz, 29)), to: endOfDay(todayInTz) }
-      break
-    case 'thisMonth': {
-      const thisMonthFirst = getMonthBoundsInTimezone(year, month, timezone).from
-      presetDates = { from: thisMonthFirst, to: endOfDay(todayInTz) }
-      break
-    }
+      return toPresetRange(addDaysToCalendarDate(todayStr, -29), todayStr)
+    case 'thisMonth':
+      return toPresetRange(formatCalendarDate(year, month, 1), todayStr)
     case 'lastMonth': {
       const lastMonthNum = month === 1 ? 12 : month - 1
       const lastMonthYear = month === 1 ? year - 1 : year
-      presetDates = getMonthBoundsInTimezone(lastMonthYear, lastMonthNum, timezone)
-      break
+      const lastDay = getDaysInCalendarMonth(lastMonthYear, lastMonthNum)
+      return toPresetRange(
+        formatCalendarDate(lastMonthYear, lastMonthNum, 1),
+        formatCalendarDate(lastMonthYear, lastMonthNum, lastDay)
+      )
     }
     case 'thisYear':
-      presetDates = { from: startOfYear(todayInTz), to: endOfDay(todayInTz) }
-      break
+      return toPresetRange(formatCalendarDate(year, 1, 1), todayStr)
     default:
       return null
-  }
-
-  return {
-    from: dateToCalendarISOString(presetDates.from),
-    to: dateToCalendarISOStringEnd(presetDates.to),
   }
 }
 

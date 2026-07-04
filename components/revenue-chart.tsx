@@ -20,6 +20,7 @@ import {
   type DashboardAdditionalCostRow,
   type DashboardBookingRow,
 } from '@/lib/analytics/dashboard-metrics'
+import { formatPln, formatPlnCompact } from '@/lib/currency/format-currency'
 
 type GroupBy = 'daily' | 'weekly' | 'monthly'
 
@@ -64,7 +65,7 @@ function ChartTooltip({ active, payload, label }: {
           <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: entry.color }} />
           <span className="text-muted-foreground">{entry.name}:</span>
           <span className="font-medium text-foreground ml-auto pl-3">
-            ${entry.value.toFixed(2)}
+            {formatPln(entry.value)}
           </span>
         </div>
       ))}
@@ -138,7 +139,7 @@ export function RevenueChart({ bookings, additionalCosts, timezone }: RevenueCha
                 tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v: number) => `$${v}`}
+                tickFormatter={(v: number) => formatPlnCompact(v)}
                 width={60}
               />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />

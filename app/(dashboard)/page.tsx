@@ -17,6 +17,9 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { RevenueChart } from '@/components/revenue-chart'
+import { CurrencyAmount } from '@/components/currency-amount'
+import { getPlnExchangeRates } from '@/lib/currency/exchange-rates'
+import { formatPln } from '@/lib/currency/format-currency'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,6 +114,8 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
   const additionalCostsResult = await additionalCostsQuery
   const additionalCostsData = (additionalCostsResult.data as DashboardAdditionalCostRow[]) || []
 
+  const rates = await getPlnExchangeRates()
+
   const {
     totalRevenue,
     totalBookings,
@@ -151,7 +156,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${totalRevenue.toFixed(2)}</div>
+            <CurrencyAmount amountPln={totalRevenue} rates={rates} />
           </CardContent>
         </Card>
 
@@ -163,7 +168,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${totalProfit.toFixed(2)}</div>
+            <CurrencyAmount amountPln={totalProfit} rates={rates} />
           </CardContent>
         </Card>
 
@@ -187,7 +192,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${totalCosts.toFixed(2)}</div>
+            <CurrencyAmount amountPln={totalCosts} rates={rates} />
           </CardContent>
         </Card>
       </div>
@@ -215,7 +220,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                 </div>
                 <span className="text-sm font-medium">Product Costs</span>
               </div>
-              <span className="text-sm font-bold tracking-tight">${totalEarringCosts.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">{formatPln(totalEarringCosts)}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
@@ -225,7 +230,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                 </div>
                 <span className="text-sm font-medium">Travel Fees</span>
               </div>
-              <span className="text-sm font-bold tracking-tight">${totalTravelFees.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">{formatPln(totalTravelFees)}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
@@ -235,7 +240,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                 </div>
                 <span className="text-sm font-medium">Booksy Fees</span>
               </div>
-              <span className="text-sm font-bold tracking-tight">${totalBooksyFees.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">{formatPln(totalBooksyFees)}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
@@ -245,7 +250,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                 </div>
                 <span className="text-sm font-medium">Broken Product Losses</span>
               </div>
-              <span className="text-sm font-bold tracking-tight">${totalBrokenEarringLosses.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">{formatPln(totalBrokenEarringLosses)}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
@@ -255,7 +260,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                 </div>
                 <span className="text-sm font-medium">Tax</span>
               </div>
-              <span className="text-sm font-bold tracking-tight">${totalTax.toFixed(2)}</span>
+              <span className="text-sm font-bold tracking-tight">{formatPln(totalTax)}</span>
             </div>
             {totalAdditionalCosts > 0 && (
               <>
@@ -266,7 +271,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                       <Receipt className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-semibold">Additional Costs</span>
                     </div>
-                    <span className="text-sm font-bold">${totalAdditionalCosts.toFixed(2)}</span>
+                    <span className="text-sm font-bold">{formatPln(totalAdditionalCosts)}</span>
                   </div>
                   <div className="pl-6 space-y-1">
                     {Object.entries(additionalCostsByCategory)
@@ -274,7 +279,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                       .map(([category, amount]) => (
                         <div key={category} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground capitalize">{category}</span>
-                          <span className="font-medium">${amount.toFixed(2)}</span>
+                          <span className="font-medium">{formatPln(amount)}</span>
                         </div>
                       ))}
                   </div>
@@ -295,7 +300,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${avgRevenuePerBooking.toFixed(2)}</div>
+            <CurrencyAmount amountPln={avgRevenuePerBooking} rates={rates} />
           </CardContent>
         </Card>
 
@@ -307,7 +312,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${avgProfitPerBooking.toFixed(2)}</div>
+            <CurrencyAmount amountPln={avgProfitPerBooking} rates={rates} />
           </CardContent>
         </Card>
 
@@ -319,7 +324,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">${avgCostPerBooking.toFixed(2)}</div>
+            <CurrencyAmount amountPln={avgCostPerBooking} rates={rates} />
           </CardContent>
         </Card>
       </div>
@@ -350,7 +355,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                       <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell className="text-right">{product.qty}</TableCell>
-                      <TableCell className="text-right font-semibold">${product.revenue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPln(product.revenue)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -385,7 +390,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                     <TableRow key={index} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">{service.name}</TableCell>
                       <TableCell className="text-right">{service.count}</TableCell>
-                      <TableCell className="text-right font-semibold">${service.revenue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPln(service.revenue)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

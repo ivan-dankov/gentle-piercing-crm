@@ -288,6 +288,28 @@ export function extractCalendarDateInTimezone(date: Date | string, timezone: str
 }
 
 /**
+ * Add days to a calendar date (YYYY-MM-DD) using UTC arithmetic.
+ * Timezone-independent — safe for preset boundary calculations.
+ */
+export function addDaysToCalendarDate(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const result = new Date(Date.UTC(year, month - 1, day + days))
+  const y = result.getUTCFullYear()
+  const m = String(result.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(result.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * Day of week for a calendar date: 0 = Sunday, 1 = Monday, … 6 = Saturday.
+ * Uses UTC arithmetic so results do not depend on server timezone.
+ */
+export function getUTCDayOfWeekForCalendarDate(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+/**
  * Get the calendar date (YYYY-MM-DD) for today in a specific timezone
  */
 export function getTodayInTimezone(timezone: string): string {
